@@ -148,7 +148,10 @@ def _export_mp3(wav_path: Path, mp3_path: Path, speed: float) -> None:
 
     audio = AudioSegment.from_wav(wav_path)
     if abs(speed - 1.0) > 1e-3:
-        audio = audio.speedup(playback_speed=speed)
+        original_rate = audio.frame_rate
+        new_rate = max(1, int(original_rate * speed))
+        audio = audio._spawn(audio.raw_data, overrides={"frame_rate": new_rate})
+        audio = audio.set_frame_rate(original_rate)
     audio.export(mp3_path, format="mp3", bitrate="192k")
     wav_path.unlink(missing_ok=True)
 
