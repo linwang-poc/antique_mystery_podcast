@@ -4,7 +4,7 @@
 
 The voice cloning test script (`test_voice_cloning.py`) is **currently running in the background**.
 
-It's initializing the XTTS v2 model and will generate voice samples. This process takes several minutes on M1 Mac CPU.
+It's initializing the Chatterbox TTS model and will generate voice samples. This process takes several minutes on an M1 Mac CPU.
 
 ---
 
@@ -50,7 +50,7 @@ tail -f test_output.log
 
 ## Expected Timeline
 
-On M1 Mac (CPU mode):
+On an M1 Mac (CPU mode):
 - **Model initialization:** 1-3 minutes
 - **Voice cloning prep:** < 1 minute
 - **Each sample generation:** 2-5 minutes
@@ -124,4 +124,4 @@ python test_voice_cloning.py
 
 ---
 
-**Note:** The first run always takes longer because XTTS v2 needs to initialize all its components. Subsequent runs will be faster.
+**Note:** The first run always takes longer because Chatterbox needs to download and initialize its weights. Subsequent runs will be faster.

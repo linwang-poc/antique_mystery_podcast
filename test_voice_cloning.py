@@ -3,7 +3,6 @@
 
 from __future__ import annotations
 
-import os
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -59,7 +58,7 @@ VOICE_PARAMS = {
 }
 
 
-def check_environment() -> Tuple[str | None, List[Path]]:
+def check_environment() -> List[Path]:
     """Ensure the project has the dependencies and assets required to run."""
     print("=" * 60)
     print("VOICE CLONING TEST - Environment Check")
@@ -70,28 +69,17 @@ def check_environment() -> Tuple[str | None, List[Path]]:
     if not training_files:
         print("\n❌ ERROR: No training voice files found in assets/reference_voices/")
         print("   Please ensure training_*.mp3 files are present.")
-        return None, []
+        return []
     print(f"\n✓ Found {len(training_files)} training voice file(s)")
 
-    engine_type: str | None = None
     try:
         from chatterbox.tts import ChatterboxTTS  # noqa: F401
 
-        engine_type = "chatterbox"
-        print("✓ Chatterbox TTS found (Resemble AI)")
+        print("✓ Chatterbox TTS available (Resemble AI)")
     except ImportError:
-        try:
-            from TTS.api import TTS  # noqa: F401
-            import TTS as tts_module
-
-            engine_type = "coqui"
-            print(f"✓ Coqui TTS found (version: {tts_module.__version__})")
-        except ImportError:
-            print("\n❌ ERROR: No supported TTS engine found!")
-            print("   Please install one of:")
-            print("   - pip install chatterbox-tts  (Recommended - MIT license)")
-            print("   - pip install TTS            (Coqui XTTS v2 alternative)")
-            return None, []
+        print("\n❌ ERROR: Chatterbox TTS is not installed.")
+        print("   Install it with `pip install chatterbox-tts`.")
+        return []
 
     for dependency, import_path in (
         ("torchaudio", "torchaudio"),
@@ -103,7 +91,7 @@ def check_environment() -> Tuple[str | None, List[Path]]:
         except ImportError:
             print(f"\n❌ ERROR: Missing required dependency '{dependency}'")
             print("   Install requirements with `pip install -r requirements.txt`.")
-            return None, []
+            return []
 
     OUTPUT_ROOT.mkdir(parents=True, exist_ok=True)
     print(f"✓ Output directory ready: {OUTPUT_ROOT}")
@@ -111,52 +99,27 @@ def check_environment() -> Tuple[str | None, List[Path]]:
     print("\n" + "=" * 60)
     print("Environment check PASSED! Ready to test voice cloning.")
     print("=" * 60 + "\n")
-    return engine_type, training_files
+    return training_files
 
 
-def load_tts_engine(engine_type: str):
-    """Load and initialize the configured TTS engine."""
-    print(f"Loading {engine_type} TTS engine...")
+def load_tts_engine():
+    """Load and initialize the Chatterbox TTS engine."""
+    print("Loading Chatterbox TTS engine...")
+    try:
+        from chatterbox.tts import ChatterboxTTS
 
-    if engine_type == "chatterbox":
-        try:
-            from chatterbox.tts import ChatterboxTTS
+        device = "cpu"
+        print(f"✓ Using device: {device}")
+        print("  Loading Chatterbox model (first load may download ~1GB)...")
+        model = ChatterboxTTS.from_pretrained(device=device)
+        print("✓ Chatterbox TTS loaded successfully")
+        return model
+    except Exception as error:  # noqa: BLE001 - show detailed traceback
+        print(f"❌ Error loading Chatterbox: {error}")
+        import traceback
 
-            device = "cpu"
-            print(f"✓ Using device: {device}")
-            print("  Loading Chatterbox model (first load may download ~1GB)...")
-            model = ChatterboxTTS.from_pretrained(device=device)
-            print("✓ Chatterbox TTS loaded successfully")
-            return model
-        except Exception as error:  # noqa: BLE001 - show detailed traceback
-            print(f"❌ Error loading Chatterbox: {error}")
-            import traceback
-
-            traceback.print_exc()
-            return None
-
-    if engine_type == "coqui":
-        try:
-            from TTS.api import TTS
-
-            device = "cpu"
-            print(f"✓ Using device: {device}")
-            print("  Note: Using XTTS v2 under the non-commercial CPML license.")
-            os.environ["COQUI_TOS_AGREED"] = "1"
-            print("  Downloading model (first load only, ~2GB)...")
-            tts = TTS("tts_models/multilingual/multi-dataset/xtts_v2")
-            tts.to(device)
-            print("✓ Coqui TTS (XTTS v2) loaded successfully")
-            return tts
-        except Exception as error:  # noqa: BLE001
-            print(f"❌ Error loading Coqui TTS: {error}")
-            import traceback
-
-            traceback.print_exc()
-            return None
-
-    print(f"❌ Unsupported engine type requested: {engine_type}")
-    return None
+        traceback.print_exc()
+        return None
 
 
 def _prepare_wav_tensor(raw_audio, tts_engine) -> Tuple["torch.Tensor", int]:
@@ -196,36 +159,22 @@ def generate_sample(
     text: str,
     output_path: Path,
     params: Dict[str, float],
-    engine_type: str,
 ) -> bool:
-    """Generate audio from text using the requested engine."""
+    """Generate audio from text using the Chatterbox engine."""
     print(f"Generating: {output_path.name}")
     wav_path = output_path.with_suffix(".wav")
 
     try:
-        if engine_type == "chatterbox":
-            raw_audio = tts_engine.generate(
-                text=text,
-                audio_prompt_path=str(reference_audio),
-                exaggeration=0.6,
-            )
-            wav_tensor, sample_rate = _prepare_wav_tensor(raw_audio, tts_engine)
+        raw_audio = tts_engine.generate(
+            text=text,
+            audio_prompt_path=str(reference_audio),
+            exaggeration=0.6,
+        )
+        wav_tensor, sample_rate = _prepare_wav_tensor(raw_audio, tts_engine)
 
-            import torchaudio
+        import torchaudio
 
-            torchaudio.save(str(wav_path), wav_tensor, sample_rate)
-
-        elif engine_type == "coqui":
-            tts_engine.tts_to_file(
-                text=text,
-                speaker_wav=str(reference_audio),
-                language="en",
-                file_path=str(wav_path),
-            )
-        else:
-            print(f"  ❌ Unknown engine type: {engine_type}")
-            return False
-
+        torchaudio.save(str(wav_path), wav_tensor, sample_rate)
         _export_mp3(wav_path, output_path, params.get("speed", 1.0))
         print(f"  ✓ Generated successfully: {output_path}")
         return True
@@ -291,11 +240,11 @@ def create_evaluation_template(output_dir: Path, generated_files: Iterable[Path]
 
 def run_voice_test() -> None:
     """Main entry point for the voice cloning test workflow."""
-    engine_type, training_files = check_environment()
-    if not engine_type:
+    training_files = check_environment()
+    if not training_files:
         sys.exit(1)
 
-    tts_engine = load_tts_engine(engine_type)
+    tts_engine = load_tts_engine()
     if not tts_engine:
         print("\n❌ Failed to load TTS engine. Exiting.")
         sys.exit(1)
@@ -318,7 +267,6 @@ def run_voice_test() -> None:
             text=sample_text.strip(),
             output_path=output_path,
             params=VOICE_PARAMS,
-            engine_type=engine_type,
         ):
             generated_files.append(output_path)
 

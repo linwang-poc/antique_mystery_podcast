@@ -36,18 +36,17 @@
 
 ## ✅ TTS Engine Installed!
 
-**Coqui TTS (XTTS v2)** has been successfully installed and configured!
-- Model: `tts_models/multilingual/multi-dataset/xtts_v2`
-- License: Non-commercial CPML
-- Features: Voice cloning from audio samples, multilingual support
+**Chatterbox TTS** has been successfully installed and configured!
+- License: MIT (commercial-friendly)
+- Features: Zero-shot voice cloning, strong expressive control
 - M1 Compatible: Yes (CPU mode)
+- Model download: ~1GB on first run
 
 ---
 
 ## ⏳ Current Status: Running Voice Tests
 
-The test script is currently downloading the XTTS v2 model (~1.87GB, first time only).
-After download completes, it will generate 5 mystery narration samples.
+The test script loads the Chatterbox weights (first run downloads to cache) and then generates 5 mystery narration samples.
 
 ---
 
@@ -57,23 +56,19 @@ After download completes, it will generate 5 mystery narration samples.
 
 The script is running and will:
 
-#### Option A: Try Chatterbox First (Recommended but may have M1 issues)
+#### Install / Verify Chatterbox
 
 ```bash
 # Activate virtual environment
 source venv/bin/activate
 
-# Try installing Chatterbox
-# Check official GitHub: https://github.com/resemble-ai/chatterbox
 pip install chatterbox-tts
 
 # Test installation
-python -c "import chatterbox; print('Chatterbox installed!')"
+python -c "import chatterbox; print('Chatterbox version:', chatterbox.__version__)"
 ```
 
-**If Chatterbox fails** (common on M1), proceed to Option B.
-
-#### Option B: Install GPT-SoVITS (M1 Fallback)
+#### Optional Fallback: GPT-SoVITS
 
 ```bash
 # Activate virtual environment
@@ -94,25 +89,14 @@ python -c "import gpt_sovits; print('GPT-SoVITS installed!')"
 
 ---
 
-### Step 2: Implement TTS API Calls
+### Step 2: Review Voice Test Script
 
-Once you have a TTS engine working, you need to implement 3 functions in [test_voice_cloning.py](test_voice_cloning.py):
+`test_voice_cloning.py` now targets Chatterbox only:
+- `load_tts_engine()` handles model initialization on CPU.
+- `generate_sample()` performs zero-shot cloning with the first `training_*.mp3`.
+- Voice parameters live in `VOICE_PARAMS` for quick tuning.
 
-1. **`load_tts_engine(engine_type)`** (line 115-140)
-   - Initialize the TTS engine
-   - Return the engine object
-
-2. **`clone_voice(tts_engine, reference_audio_path)`** (line 143-152)
-   - Load reference audio from [training_1.mp3](assets/reference_voices/training_1.mp3)
-   - Create voice profile/embedding
-   - Return the voice profile
-
-3. **`generate_sample(tts_engine, voice_profile, text, output_path, params)`** (line 154-170)
-   - Generate audio from text using cloned voice
-   - Apply voice parameters (speed, pitch, pauses, etc.)
-   - Save MP3 file to output_path
-
-**See [docs/TTS_IMPLEMENTATION_NOTES.md](docs/TTS_IMPLEMENTATION_NOTES.md) for detailed guidance.**
+If you switch engines later, update these functions accordingly.
 
 ---
 

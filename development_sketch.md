@@ -217,7 +217,7 @@ Initial setup to create the cloned voice profile.
 ---
 
 ## Next Steps
-1. Validate package choice (Coqui TTS vs alternatives)
+1. Validate TTS package choice (Chatterbox vs alternatives)
 2. Create detailed development plan
 3. Set up development environment
 4. Implement training mode
