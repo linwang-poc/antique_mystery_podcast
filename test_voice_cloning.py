@@ -18,38 +18,50 @@ from datetime import datetime
 
 # Mystery text samples for testing
 MYSTERY_SAMPLES = {
-    "01_suspenseful_opening": """
-The antique vase gleamed under the dim light of the auction house.
-No one knew... its secrets had been hidden for centuries.
-But tonight... someone would discover the truth.
-""",
+    "01_suspenseful_opening": """The antique vase gleamed in the dim light of the auction house.
+Margaret had seen it before, somewhere. The pattern of roses and thorns
+triggered a memory she couldn't quite grasp. She stepped closer, her heart
+racing. Then she saw it. The tiny crack. The same crack from her grandmother's
+photograph. But that vase had been destroyed in the fire. Hadn't it?""",
 
-    "02_dramatic_revelation": """
-She opened the old diary... and gasped.
-The handwriting was unmistakable. Her grandfather...
-had been there. On that very night.
-The night the treasure disappeared.
-""",
+    "02_dramatic_revelation": """She opened the old diary with trembling hands. The ink was faded,
+but the handwriting was unmistakable. Her mother's handwriting. But the date,
+the date was impossible. This entry was written three days after her mother's
+death. Margaret's breath caught in her throat as she read the first line.
+If you're reading this, then you know the truth about the Ashworth inheritance.""",
 
-    "03_tense_confrontation": """
-"You're lying," he whispered, his voice cold as ice.
-The old clock behind her chimed midnight.
-She had ten seconds... to tell the truth... or run.
-""",
+    "03_tense_confrontation": """You're lying, he whispered, his voice barely audible over the
+ticking grandfather clock. The curator's smile never wavered. Am I? she replied,
+tilting her head slightly. Then explain why your fingerprints are on the frame.
+The frame that held the stolen Rembrandt. The silence stretched between them
+like a taut wire, ready to snap. Finally, he spoke. You don't understand what
+you're dealing with.""",
 
-    "04_descriptive_atmosphere": """
-The Victorian music box sat on the dusty shelf,
-its brass fittings tarnished with age.
-When wound, it played a haunting melody...
-one that hadn't been heard in fifty years.
-""",
+    "04_descriptive_atmosphere": """The Victorian music box sat on the mantelpiece, its silver surface
+tarnished with age. Dust motes danced in the shaft of moonlight that pierced
+the velvet curtains. Everything in the room was exactly as it had been fifty
+years ago, frozen in time. The air itself seemed to hold its breath, waiting.
+Waiting for someone to wind the key and release whatever secrets the melody
+might reveal.""",
 
-    "05_plot_twist": """
-But wait. The painting... it wasn't a forgery after all.
-The signature hidden beneath the frame...
-changed everything. Everything she thought she knew...
-was wrong.
-"""
+    "05_plot_twist": """But wait. The painting was a forgery. Detective Morrison had known
+it for weeks. Which meant the real artwork was still missing. And if it was
+still missing, then the killer was still out there. Still watching. Still
+waiting. He turned slowly, scanning the crowd of art collectors. Somewhere
+among these faces was a murderer. A murderer who didn't know the truth. Yet.""",
+    "06_Allan_poe_Raven": """ Ah, distinctly I remember it was in the bleak December;
+And each separate dying ember wrought its ghost upon the floor.
+    Eagerly I wished the morrow;—vainly I had sought to borrow
+    From my books surcease of sorrow—sorrow for the lost Lenore—
+For the rare and radiant maiden whom the angels name Lenore—
+            Nameless here for evermore.
+
+    And the silken, sad, uncertain rustling of each purple curtain
+Thrilled me—filled me with fantastic terrors never felt before;
+    So that now, to still the beating of my heart, I stood repeating
+    “’Tis some visitor entreating entrance at my chamber door—
+Some late visitor entreating entrance at my chamber door;—
+            This it is and nothing more."""
 }
 
 # Voice parameters (mystery-optimized defaults)
@@ -84,21 +96,28 @@ def check_environment():
     # Check for TTS engine
     tts_engine = None
     try:
-        import chatterbox
-        tts_engine = "chatterbox"
-        print(f"✓ Chatterbox TTS found (version: {chatterbox.__version__})")
+        from TTS.api import TTS
+        tts_engine = "coqui"
+        import TTS as tts_module
+        print(f"✓ Coqui TTS found (version: {tts_module.__version__})")
     except ImportError:
         try:
-            import gpt_sovits
-            tts_engine = "gpt-sovits"
-            print("✓ GPT-SoVITS found")
+            import chatterbox
+            tts_engine = "chatterbox"
+            print(f"✓ Chatterbox TTS found (version: {chatterbox.__version__})")
         except ImportError:
-            print("\n❌ ERROR: No TTS engine found!")
-            print("   Please install either:")
-            print("   - pip install chatterbox-tts  (recommended)")
-            print("   - pip install gpt-sovits-python")
-            print("\n   See SETUP_INSTRUCTIONS.md for detailed setup.")
-            return False
+            try:
+                import gpt_sovits
+                tts_engine = "gpt-sovits"
+                print("✓ GPT-SoVITS found")
+            except ImportError:
+                print("\n❌ ERROR: No TTS engine found!")
+                print("   Please install one of:")
+                print("   - pip install TTS  (Coqui TTS - recommended for M1)")
+                print("   - pip install chatterbox-tts")
+                print("   - pip install gpt-sovits-python")
+                print("\n   See SETUP_INSTRUCTIONS.md for detailed setup.")
+                return False
 
     # Check output directory
     output_dir = Path("output/voice_tests")
@@ -116,11 +135,37 @@ def load_tts_engine(engine_type):
     """Load and initialize the TTS engine."""
     print(f"Loading {engine_type} TTS engine...")
 
-    if engine_type == "chatterbox":
+    if engine_type == "coqui":
+        try:
+            from TTS.api import TTS
+            import torch
+            import os
+
+            # Use CPU for M1 Mac (MPS may not be stable for TTS)
+            device = "cpu"
+            print(f"✓ Using device: {device}")
+
+            # Set environment variable to accept XTTS license automatically
+            # This is for non-commercial use (CPML license)
+            os.environ["COQUI_TOS_AGREED"] = "1"
+
+            print("  Note: Using XTTS v2 under non-commercial CPML license")
+            print("  See: https://coqui.ai/cpml")
+
+            # Initialize Coqui TTS with XTTS v2 (supports voice cloning)
+            print("  Downloading model (first time only, ~2GB)...")
+            tts = TTS("tts_models/multilingual/multi-dataset/xtts_v2").to(device)
+            print("✓ Coqui TTS (XTTS v2) loaded successfully")
+            return tts
+        except Exception as e:
+            print(f"❌ Error loading Coqui TTS: {e}")
+            import traceback
+            traceback.print_exc()
+            return None
+
+    elif engine_type == "chatterbox":
         try:
             from chatterbox import ChatterboxTTS
-            # Initialize Chatterbox
-            # Note: Actual implementation depends on Chatterbox API
             print("✓ Chatterbox TTS loaded")
             return ChatterboxTTS()
         except Exception as e:
@@ -130,7 +175,6 @@ def load_tts_engine(engine_type):
     elif engine_type == "gpt-sovits":
         try:
             from gpt_sovits import GPTSOVITS
-            # Initialize GPT-SoVITS
             print("✓ GPT-SoVITS loaded")
             return GPTSOVITS()
         except Exception as e:
@@ -144,29 +188,65 @@ def clone_voice(tts_engine, reference_audio_path):
     """Clone voice from reference audio."""
     print(f"\nCloning voice from: {reference_audio_path}")
 
-    # TODO: Implement actual voice cloning based on TTS engine
-    # This is a placeholder - actual implementation depends on the TTS library
+    # For Coqui TTS XTTS v2, voice cloning is done on-the-fly during generation
+    # We just need to store the path to the reference audio
+    # The actual cloning happens in generate_sample()
 
-    print("✓ Voice cloned successfully")
-    return "voice_profile_placeholder"
+    print("✓ Voice reference prepared (cloning will happen during generation)")
+    return str(reference_audio_path)
 
 
 def generate_sample(tts_engine, voice_profile, text, output_path, params):
     """Generate audio from text using cloned voice."""
     print(f"Generating: {output_path.name}")
 
-    # TODO: Implement actual TTS generation based on engine
-    # This is a placeholder - actual implementation depends on the TTS library
+    try:
+        # For Coqui TTS XTTS v2:
+        # voice_profile is the path to the reference audio file
+        speaker_wav = voice_profile
 
-    # Example parameters to use:
-    # - speed: params["speed"]
-    # - expressiveness: params["expressiveness"]
-    # - pitch: params["pitch"]
-    # - pause_duration: params["pause_duration"]
-    # etc.
+        # XTTS v2 supports English language
+        language = "en"
 
-    print(f"  ✓ Generated (placeholder)")
-    return True
+        # Generate audio with voice cloning
+        # Note: XTTS v2 doesn't directly support all our parameters,
+        # but we can apply some post-processing
+        print(f"  Synthesizing with cloned voice...")
+
+        # Generate to WAV first
+        wav_path = str(output_path).replace('.mp3', '.wav')
+        tts_engine.tts_to_file(
+            text=text,
+            speaker_wav=speaker_wav,
+            language=language,
+            file_path=wav_path
+        )
+
+        # Convert WAV to MP3 and apply speed adjustment if needed
+        from pydub import AudioSegment
+        audio = AudioSegment.from_wav(wav_path)
+
+        # Apply speed adjustment (if different from 1.0)
+        speed = params.get("speed", 1.0)
+        if speed != 1.0:
+            # Change speed without changing pitch
+            audio = audio.speedup(playback_speed=speed)
+
+        # Export as MP3
+        audio.export(output_path, format="mp3", bitrate="192k")
+
+        # Clean up WAV file
+        import os
+        os.remove(wav_path)
+
+        print(f"  ✓ Generated successfully: {output_path}")
+        return True
+
+    except Exception as e:
+        print(f"  ❌ Error generating audio: {e}")
+        import traceback
+        traceback.print_exc()
+        return False
 
 
 def run_voice_test():
