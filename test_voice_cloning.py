@@ -1,70 +1,53 @@
 #!/usr/bin/env python3
-"""
-Voice Cloning Test Script for Antique Mystery Podcast
-Tests voice cloning quality with mystery-themed samples before full development.
+"""Voice Cloning Test Script for the Antique Mystery Podcast project."""
 
-Usage:
-    python test_voice_cloning.py
-
-Requirements:
-    - TTS engine installed (see SETUP_INSTRUCTIONS.md)
-    - Voice files in assets/reference_voices/
-"""
+from __future__ import annotations
 
 import os
 import sys
-from pathlib import Path
 from datetime import datetime
+from pathlib import Path
+from typing import Dict, Iterable, List, Tuple
 
-# Mystery text samples for testing
-MYSTERY_SAMPLES = {
+
+BASE_DIR = Path(__file__).parent.resolve()
+REFERENCE_VOICE_DIR = BASE_DIR / "assets" / "reference_voices"
+OUTPUT_ROOT = BASE_DIR / "output" / "voice_tests"
+
+
+# Mystery text samples for testing (keep order deterministic for evaluation).
+MYSTERY_SAMPLES: Dict[str, str] = {
     "01_suspenseful_opening": """The antique vase gleamed in the dim light of the auction house.
 Margaret had seen it before, somewhere. The pattern of roses and thorns
 triggered a memory she couldn't quite grasp. She stepped closer, her heart
 racing. Then she saw it. The tiny crack. The same crack from her grandmother's
 photograph. But that vase had been destroyed in the fire. Hadn't it?""",
-
     "02_dramatic_revelation": """She opened the old diary with trembling hands. The ink was faded,
 but the handwriting was unmistakable. Her mother's handwriting. But the date,
 the date was impossible. This entry was written three days after her mother's
 death. Margaret's breath caught in her throat as she read the first line.
 If you're reading this, then you know the truth about the Ashworth inheritance.""",
-
     "03_tense_confrontation": """You're lying, he whispered, his voice barely audible over the
 ticking grandfather clock. The curator's smile never wavered. Am I? she replied,
 tilting her head slightly. Then explain why your fingerprints are on the frame.
 The frame that held the stolen Rembrandt. The silence stretched between them
 like a taut wire, ready to snap. Finally, he spoke. You don't understand what
 you're dealing with.""",
-
     "04_descriptive_atmosphere": """The Victorian music box sat on the mantelpiece, its silver surface
 tarnished with age. Dust motes danced in the shaft of moonlight that pierced
 the velvet curtains. Everything in the room was exactly as it had been fifty
 years ago, frozen in time. The air itself seemed to hold its breath, waiting.
 Waiting for someone to wind the key and release whatever secrets the melody
 might reveal.""",
-
     "05_plot_twist": """But wait. The painting was a forgery. Detective Morrison had known
 it for weeks. Which meant the real artwork was still missing. And if it was
 still missing, then the killer was still out there. Still watching. Still
 waiting. He turned slowly, scanning the crowd of art collectors. Somewhere
 among these faces was a murderer. A murderer who didn't know the truth. Yet.""",
-    "06_Allan_poe_Raven": """ Ah, distinctly I remember it was in the bleak December;
-And each separate dying ember wrought its ghost upon the floor.
-    Eagerly I wished the morrow;—vainly I had sought to borrow
-    From my books surcease of sorrow—sorrow for the lost Lenore—
-For the rare and radiant maiden whom the angels name Lenore—
-            Nameless here for evermore.
-
-    And the silken, sad, uncertain rustling of each purple curtain
-Thrilled me—filled me with fantastic terrors never felt before;
-    So that now, to still the beating of my heart, I stood repeating
-    “’Tis some visitor entreating entrance at my chamber door—
-Some late visitor entreating entrance at my chamber door;—
-            This it is and nothing more."""
 }
 
-# Voice parameters (mystery-optimized defaults)
+
+# Voice parameters (mystery-optimized defaults).
 VOICE_PARAMS = {
     "speed": 0.90,  # Slightly slower for suspense
     "expressiveness": 7,  # High for tension
@@ -76,289 +59,277 @@ VOICE_PARAMS = {
 }
 
 
-def check_environment():
-    """Check if all required files and packages exist."""
+def check_environment() -> Tuple[str | None, List[Path]]:
+    """Ensure the project has the dependencies and assets required to run."""
     print("=" * 60)
     print("VOICE CLONING TEST - Environment Check")
     print("=" * 60)
-
-    # Check Python version
     print(f"\n✓ Python version: {sys.version.split()[0]}")
 
-    # Check for voice files
-    training_files = list(Path("assets/reference_voices").glob("training_*.mp3"))
+    training_files = sorted(REFERENCE_VOICE_DIR.glob("training_*.mp3"))
     if not training_files:
         print("\n❌ ERROR: No training voice files found in assets/reference_voices/")
         print("   Please ensure training_*.mp3 files are present.")
-        return False
-    print(f"\n✓ Found {len(training_files)} training voice files")
+        return None, []
+    print(f"\n✓ Found {len(training_files)} training voice file(s)")
 
-    # Check for TTS engine (prioritize Chatterbox)
-    tts_engine = None
+    engine_type: str | None = None
     try:
-        from chatterbox.tts import ChatterboxTTS
-        tts_engine = "chatterbox"
+        from chatterbox.tts import ChatterboxTTS  # noqa: F401
+
+        engine_type = "chatterbox"
         print("✓ Chatterbox TTS found (Resemble AI)")
     except ImportError:
         try:
-            from TTS.api import TTS
-            tts_engine = "coqui"
+            from TTS.api import TTS  # noqa: F401
             import TTS as tts_module
+
+            engine_type = "coqui"
             print(f"✓ Coqui TTS found (version: {tts_module.__version__})")
         except ImportError:
-            print("\n❌ ERROR: No TTS engine found!")
+            print("\n❌ ERROR: No supported TTS engine found!")
             print("   Please install one of:")
-            print("   - pip install chatterbox-tts  (Recommended - open source)")
-            print("   - pip install TTS  (Coqui TTS alternative)")
-            print("\n   See CHATTERBOX_RESEARCH.md for installation details.")
-            return False
+            print("   - pip install chatterbox-tts  (Recommended - MIT license)")
+            print("   - pip install TTS            (Coqui XTTS v2 alternative)")
+            return None, []
 
-    # Check output directory
-    output_dir = Path("output/voice_tests")
-    output_dir.mkdir(parents=True, exist_ok=True)
-    print(f"✓ Output directory ready: {output_dir}")
+    for dependency, import_path in (
+        ("torchaudio", "torchaudio"),
+        ("pydub", "pydub"),
+    ):
+        try:
+            __import__(import_path)
+            print(f"✓ Dependency available: {dependency}")
+        except ImportError:
+            print(f"\n❌ ERROR: Missing required dependency '{dependency}'")
+            print("   Install requirements with `pip install -r requirements.txt`.")
+            return None, []
+
+    OUTPUT_ROOT.mkdir(parents=True, exist_ok=True)
+    print(f"✓ Output directory ready: {OUTPUT_ROOT}")
 
     print("\n" + "=" * 60)
     print("Environment check PASSED! Ready to test voice cloning.")
     print("=" * 60 + "\n")
+    return engine_type, training_files
 
-    return tts_engine
 
-
-def load_tts_engine(engine_type):
-    """Load and initialize the TTS engine."""
+def load_tts_engine(engine_type: str):
+    """Load and initialize the configured TTS engine."""
     print(f"Loading {engine_type} TTS engine...")
 
     if engine_type == "chatterbox":
         try:
             from chatterbox.tts import ChatterboxTTS
 
-            # Use CPU for M1 Mac
             device = "cpu"
             print(f"✓ Using device: {device}")
-
-            print("  Loading Chatterbox model (first time may download ~1GB)...")
+            print("  Loading Chatterbox model (first load may download ~1GB)...")
             model = ChatterboxTTS.from_pretrained(device=device)
             print("✓ Chatterbox TTS loaded successfully")
             return model
-        except Exception as e:
-            print(f"❌ Error loading Chatterbox: {e}")
+        except Exception as error:  # noqa: BLE001 - show detailed traceback
+            print(f"❌ Error loading Chatterbox: {error}")
             import traceback
+
             traceback.print_exc()
             return None
 
-    elif engine_type == "coqui":
+    if engine_type == "coqui":
         try:
             from TTS.api import TTS
-            import torch
-            import os
 
-            # Use CPU for M1 Mac (MPS may not be stable for TTS)
             device = "cpu"
             print(f"✓ Using device: {device}")
-
-            # Set environment variable to accept XTTS license automatically
-            # This is for non-commercial use (CPML license)
+            print("  Note: Using XTTS v2 under the non-commercial CPML license.")
             os.environ["COQUI_TOS_AGREED"] = "1"
-
-            print("  Note: Using XTTS v2 under non-commercial CPML license")
-            print("  See: https://coqui.ai/cpml")
-
-            # Initialize Coqui TTS with XTTS v2 (supports voice cloning)
-            print("  Downloading model (first time only, ~2GB)...")
-            tts = TTS("tts_models/multilingual/multi-dataset/xtts_v2").to(device)
+            print("  Downloading model (first load only, ~2GB)...")
+            tts = TTS("tts_models/multilingual/multi-dataset/xtts_v2")
+            tts.to(device)
             print("✓ Coqui TTS (XTTS v2) loaded successfully")
             return tts
-        except Exception as e:
-            print(f"❌ Error loading Coqui TTS: {e}")
+        except Exception as error:  # noqa: BLE001
+            print(f"❌ Error loading Coqui TTS: {error}")
             import traceback
+
             traceback.print_exc()
             return None
 
-    elif engine_type == "gpt-sovits":
-        try:
-            from gpt_sovits import GPTSOVITS
-            print("✓ GPT-SoVITS loaded")
-            return GPTSOVITS()
-        except Exception as e:
-            print(f"❌ Error loading GPT-SoVITS: {e}")
-            return None
-
+    print(f"❌ Unsupported engine type requested: {engine_type}")
     return None
 
 
-def clone_voice(tts_engine, reference_audio_path, engine_type="chatterbox"):
-    """Clone voice from reference audio."""
-    print(f"\nCloning voice from: {reference_audio_path}")
+def _prepare_wav_tensor(raw_audio, tts_engine) -> Tuple["torch.Tensor", int]:
+    """Coerce engine output to a torch tensor and determine the sample rate."""
+    import torch
 
-    # For Chatterbox and Coqui TTS, voice cloning is done on-the-fly during generation
-    # We just need to store the path to the reference audio
-    # The actual cloning happens in generate_sample()
+    sample_rate = getattr(tts_engine, "sample_rate", getattr(tts_engine, "sr", 24000))
+    wav = raw_audio
 
-    print("✓ Voice reference prepared (cloning will happen during generation)")
-    return str(reference_audio_path)
+    if isinstance(raw_audio, tuple) and len(raw_audio) == 2:
+        wav, sample_rate = raw_audio
+
+    if not isinstance(wav, torch.Tensor):
+        wav = torch.tensor(wav, dtype=torch.float32)
+
+    wav = wav.detach().cpu()
+    if wav.dim() == 1:
+        wav = wav.unsqueeze(0)
+
+    return wav, int(sample_rate)
 
 
-def generate_sample(tts_engine, voice_profile, text, output_path, params, engine_type="chatterbox"):
-    """Generate audio from text using cloned voice."""
+def _export_mp3(wav_path: Path, mp3_path: Path, speed: float) -> None:
+    """Convert the intermediate WAV file to MP3 and apply speed adjustments."""
+    from pydub import AudioSegment
+
+    audio = AudioSegment.from_wav(wav_path)
+    if abs(speed - 1.0) > 1e-3:
+        audio = audio.speedup(playback_speed=speed)
+    audio.export(mp3_path, format="mp3", bitrate="192k")
+    wav_path.unlink(missing_ok=True)
+
+
+def generate_sample(
+    tts_engine,
+    reference_audio: Path,
+    text: str,
+    output_path: Path,
+    params: Dict[str, float],
+    engine_type: str,
+) -> bool:
+    """Generate audio from text using the requested engine."""
     print(f"Generating: {output_path.name}")
+    wav_path = output_path.with_suffix(".wav")
 
     try:
         if engine_type == "chatterbox":
-            # For Chatterbox TTS:
-            # voice_profile is the path to the reference audio file
-            print(f"  Synthesizing with Chatterbox voice cloning...")
-
-            # Generate audio with voice cloning
-            # Chatterbox uses audio_prompt_path for zero-shot voice cloning
-            wav = tts_engine.generate(
+            raw_audio = tts_engine.generate(
                 text=text,
-                audio_prompt_path=voice_profile,
-                exaggeration=0.6  # Higher for mystery narration
+                audio_prompt_path=str(reference_audio),
+                exaggeration=0.6,
             )
+            wav_tensor, sample_rate = _prepare_wav_tensor(raw_audio, tts_engine)
 
-            # Save WAV first using torchaudio (more reliable than soundfile)
-            import torch
             import torchaudio
-            wav_path = str(output_path).replace('.mp3', '.wav')
 
-            # Convert to tensor if it's a numpy array
-            if not isinstance(wav, torch.Tensor):
-                import numpy as np
-                wav = torch.from_numpy(wav)
-
-            # Ensure correct shape (channels, samples)
-            if wav.dim() == 1:
-                wav = wav.unsqueeze(0)  # Add channel dimension
-
-            # Save as WAV
-            torchaudio.save(wav_path, wav, sample_rate=24000)
-
-            # Convert WAV to MP3 and apply speed adjustment if needed
-            from pydub import AudioSegment
-            audio = AudioSegment.from_wav(wav_path)
-
-            # Apply speed adjustment (if different from 1.0)
-            speed = params.get("speed", 1.0)
-            if speed != 1.0:
-                # Change speed without changing pitch
-                audio = audio.speedup(playback_speed=speed)
-
-            # Export as MP3
-            audio.export(output_path, format="mp3", bitrate="192k")
-
-            # Clean up WAV file
-            import os
-            os.remove(wav_path)
-
-            print(f"  ✓ Generated successfully: {output_path}")
-            return True
+            torchaudio.save(str(wav_path), wav_tensor, sample_rate)
 
         elif engine_type == "coqui":
-            # For Coqui TTS XTTS v2:
-            # voice_profile is the path to the reference audio file
-            speaker_wav = voice_profile
-
-            # XTTS v2 supports English language
-            language = "en"
-
-            # Generate audio with voice cloning
-            print(f"  Synthesizing with cloned voice...")
-
-            # Generate to WAV first
-            wav_path = str(output_path).replace('.mp3', '.wav')
             tts_engine.tts_to_file(
                 text=text,
-                speaker_wav=speaker_wav,
-                language=language,
-                file_path=wav_path
+                speaker_wav=str(reference_audio),
+                language="en",
+                file_path=str(wav_path),
             )
-
-            # Convert WAV to MP3 and apply speed adjustment if needed
-            from pydub import AudioSegment
-            audio = AudioSegment.from_wav(wav_path)
-
-            # Apply speed adjustment (if different from 1.0)
-            speed = params.get("speed", 1.0)
-            if speed != 1.0:
-                # Change speed without changing pitch
-                audio = audio.speedup(playback_speed=speed)
-
-            # Export as MP3
-            audio.export(output_path, format="mp3", bitrate="192k")
-
-            # Clean up WAV file
-            import os
-            os.remove(wav_path)
-
-            print(f"  ✓ Generated successfully: {output_path}")
-            return True
-
         else:
             print(f"  ❌ Unknown engine type: {engine_type}")
             return False
 
-    except Exception as e:
-        print(f"  ❌ Error generating audio: {e}")
+        _export_mp3(wav_path, output_path, params.get("speed", 1.0))
+        print(f"  ✓ Generated successfully: {output_path}")
+        return True
+
+    except Exception as error:  # noqa: BLE001
+        print(f"  ❌ Error generating audio: {error}")
         import traceback
+
         traceback.print_exc()
+        wav_path.unlink(missing_ok=True)
+        output_path.unlink(missing_ok=True)
         return False
 
 
-def run_voice_test():
-    """Main test function."""
-    # Check environment
-    engine_type = check_environment()
+def create_evaluation_template(output_dir: Path, generated_files: Iterable[Path]) -> None:
+    """Create an evaluation template alongside the generated samples."""
+    eval_file = output_dir / "EVALUATION.md"
+    sample_list = list(generated_files)
+
+    with eval_file.open("w", encoding="utf-8") as handle:
+        handle.write("# Voice Cloning Test - Evaluation\n\n")
+        handle.write(f"Test Date: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+        handle.write(f"Generated Files: {len(sample_list)}\n\n")
+
+        handle.write("## Voice Parameters Used\n\n")
+        for param, value in VOICE_PARAMS.items():
+            handle.write(f"- **{param}**: {value}\n")
+
+        handle.write("\n## Sample Evaluation\n\n")
+        handle.write("Rate each sample from 1-10 (1=Poor, 10=Excellent)\n\n")
+
+        for sample_id in MYSTERY_SAMPLES:
+            handle.write(f"### {sample_id.replace('_', ' ').title()}\n\n")
+            handle.write("| Criteria | Rating (1-10) | Notes |\n")
+            handle.write("|----------|---------------|-------|\n")
+            handle.write("| Voice Quality | | |\n")
+            handle.write("| Suspense/Drama | | |\n")
+            handle.write("| Pause Timing | | |\n")
+            handle.write("| Intonation | | |\n")
+            handle.write("| Pacing | | |\n")
+            handle.write("| Emotion | | |\n")
+            handle.write("| **Overall** | | **Pass/Fail** |\n\n")
+
+        handle.write("\n## Overall Assessment\n\n")
+        handle.write("**Overall Decision:** [ ] PASS - Voice quality is acceptable, proceed with development\n")
+        handle.write("                     [ ] FAIL - Voice needs improvement\n\n")
+        handle.write("## Improvement Suggestions\n\n")
+        handle.write("What specific changes would improve the voice?\n\n")
+        handle.write("- [ ] Increase pause duration (make more dramatic)\n")
+        handle.write("- [ ] Decrease pause duration (too slow)\n")
+        handle.write("- [ ] More expressiveness (more emotional variation)\n")
+        handle.write("- [ ] Less expressiveness (too exaggerated)\n")
+        handle.write("- [ ] Slower speed (more suspenseful)\n")
+        handle.write("- [ ] Faster speed (too slow)\n")
+        handle.write("- [ ] Deeper voice (lower pitch)\n")
+        handle.write("- [ ] Higher voice (raise pitch)\n")
+        handle.write("- [ ] Other (describe below):\n\n")
+        handle.write("**Additional Comments:**\n\n")
+        handle.write("(Describe what you like and what needs improvement)\n\n")
+
+    print(f"✓ Evaluation template created: {eval_file}")
+
+
+def run_voice_test() -> None:
+    """Main entry point for the voice cloning test workflow."""
+    engine_type, training_files = check_environment()
     if not engine_type:
         sys.exit(1)
 
-    # Load TTS engine
     tts_engine = load_tts_engine(engine_type)
     if not tts_engine:
         print("\n❌ Failed to load TTS engine. Exiting.")
         sys.exit(1)
 
-    # Use first training file for voice cloning
-    training_file = list(Path("assets/reference_voices").glob("training_*.mp3"))[0]
-
-    # Clone voice
-    voice_profile = clone_voice(tts_engine, training_file)
-
-    # Create output directory with timestamp
+    reference_audio = training_files[0]
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    output_dir = Path(f"output/voice_tests/test_{timestamp}")
+    output_dir = OUTPUT_ROOT / f"test_{timestamp}"
     output_dir.mkdir(parents=True, exist_ok=True)
 
     print("\n" + "=" * 60)
     print("GENERATING MYSTERY SAMPLES")
     print("=" * 60 + "\n")
 
-    # Generate each sample
-    generated_files = []
-    for sample_id, text in MYSTERY_SAMPLES.items():
+    generated_files: List[Path] = []
+    for sample_id, sample_text in MYSTERY_SAMPLES.items():
         output_path = output_dir / f"{sample_id}.mp3"
-
-        success = generate_sample(
-            tts_engine,
-            voice_profile,
-            text.strip(),
-            output_path,
-            VOICE_PARAMS,
-            engine_type
-        )
-
-        if success:
+        if generate_sample(
+            tts_engine=tts_engine,
+            reference_audio=reference_audio,
+            text=sample_text.strip(),
+            output_path=output_path,
+            params=VOICE_PARAMS,
+            engine_type=engine_type,
+        ):
             generated_files.append(output_path)
 
-    # Print results
     print("\n" + "=" * 60)
     print("TEST COMPLETED!")
     print("=" * 60)
-    print(f"\nGenerated {len(generated_files)} test samples:")
-    for file in generated_files:
-        print(f"  - {file}")
+    print(f"\nGenerated {len(generated_files)} test sample(s):")
+    for file_path in generated_files:
+        print(f"  - {file_path}")
 
-    print(f"\nVoice Parameters Used:")
+    print("\nVoice Parameters Used:")
     for param, value in VOICE_PARAMS.items():
         print(f"  - {param}: {value}")
 
@@ -368,78 +339,34 @@ def run_voice_test():
     print("1. Listen to each generated sample")
     print("2. Fill out VOICE_EVALUATION.md with your ratings")
     print("3. Provide feedback on what to improve")
-    print("4. Share results with development team")
-    print("\n")
+    print("4. Share results with the development team")
+    print()
 
-    # Create evaluation template
     create_evaluation_template(output_dir, generated_files)
 
 
-def create_evaluation_template(output_dir, generated_files):
-    """Create evaluation template for user feedback."""
-    eval_file = output_dir / "EVALUATION.md"
-
-    with open(eval_file, "w") as f:
-        f.write("# Voice Cloning Test - Evaluation\n\n")
-        f.write(f"Test Date: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
-        f.write(f"Generated Files: {len(generated_files)}\n\n")
-
-        f.write("## Voice Parameters Used\n\n")
-        for param, value in VOICE_PARAMS.items():
-            f.write(f"- **{param}**: {value}\n")
-
-        f.write("\n## Sample Evaluation\n\n")
-        f.write("Rate each sample from 1-10 (1=Poor, 10=Excellent)\n\n")
-
-        for sample_id in MYSTERY_SAMPLES.keys():
-            f.write(f"### {sample_id.replace('_', ' ').title()}\n\n")
-            f.write("| Criteria | Rating (1-10) | Notes |\n")
-            f.write("|----------|---------------|-------|\n")
-            f.write("| Voice Quality | | |\n")
-            f.write("| Suspense/Drama | | |\n")
-            f.write("| Pause Timing | | |\n")
-            f.write("| Intonation | | |\n")
-            f.write("| Pacing | | |\n")
-            f.write("| Emotion | | |\n")
-            f.write("| **Overall** | | **Pass/Fail** |\n\n")
-
-        f.write("\n## Overall Assessment\n\n")
-        f.write("**Overall Decision:** [ ] PASS - Voice quality is acceptable, proceed with development\n")
-        f.write("                     [ ] FAIL - Voice needs improvement\n\n")
-        f.write("## Improvement Suggestions\n\n")
-        f.write("What specific changes would improve the voice?\n\n")
-        f.write("- [ ] Increase pause duration (make more dramatic)\n")
-        f.write("- [ ] Decrease pause duration (too slow)\n")
-        f.write("- [ ] More expressiveness (more emotional variation)\n")
-        f.write("- [ ] Less expressiveness (too exaggerated)\n")
-        f.write("- [ ] Slower speed (more suspenseful)\n")
-        f.write("- [ ] Faster speed (too slow)\n")
-        f.write("- [ ] Deeper voice (lower pitch)\n")
-        f.write("- [ ] Higher voice (raise pitch)\n")
-        f.write("- [ ] Other (describe below):\n\n")
-        f.write("**Additional Comments:**\n\n")
-        f.write("(Describe what you like and what needs improvement)\n\n")
-
-    print(f"✓ Evaluation template created: {eval_file}")
-
-
-if __name__ == "__main__":
+def main() -> None:
+    """CLI entry point."""
     print("\n" + "=" * 60)
     print("ANTIQUE MYSTERY PODCAST - VOICE CLONING TEST")
     print("=" * 60)
     print("\nThis script will:")
-    print("1. Clone voice from training file")
+    print("1. Clone voice from the first training file")
     print("2. Generate 5 mystery narration samples")
-    print("3. Create evaluation template for your feedback")
-    print("\n")
+    print("3. Create an evaluation template for your feedback\n")
 
     try:
         run_voice_test()
     except KeyboardInterrupt:
         print("\n\nTest interrupted by user. Exiting.")
         sys.exit(0)
-    except Exception as e:
-        print(f"\n❌ ERROR: {e}")
+    except Exception as error:  # noqa: BLE001
+        print(f"\n❌ ERROR: {error}")
         import traceback
+
         traceback.print_exc()
         sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()

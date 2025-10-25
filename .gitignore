@@ -211,6 +211,8 @@ __marimo__/
 output/generated/*.mp3
 output/generated/*.wav
 !output/generated/.gitkeep
+output/voice_tests/**/*.mp3
+voice_test/**/*.mp3
 
 # TTS model cache and downloads
 models/
