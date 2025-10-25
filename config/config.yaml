@@ -1,0 +1,82 @@
+# Antique Mystery Podcast - Configuration File
+
+# Application Settings
+app:
+  name: "Antique Mystery Podcast Generator"
+  version: "1.0.0"
+  port: 7860  # Gradio default port
+
+# TTS Engine Settings
+tts:
+  engine: "chatterbox"  # Options: "chatterbox" or "gpt-sovits"
+  device: "mps"  # Options: "cuda", "mps" (Mac M1), "cpu"
+
+  # Chatterbox Settings
+  chatterbox:
+    model_path: "models/chatterbox"
+    sample_rate: 22050
+
+  # GPT-SoVITS Settings (fallback)
+  gpt_sovits:
+    model_path: "models/gpt-sovits"
+    sample_rate: 22050
+
+# Audio Processing Settings
+audio:
+  input:
+    sample_rate: 22050
+    channels: 1  # Mono
+    format: "mp3"
+
+  output:
+    sample_rate: 22050
+    channels: 1  # Mono
+    format: "mp3"  # Options: "mp3" or "wav"
+    bitrate: "192k"  # For MP3 output
+
+  normalization:
+    target_lufs: -20  # Target loudness
+    crossfade_duration: 1.0  # Seconds for ending snippet transition
+
+# Voice Cloning Parameters (Mystery Storytelling Optimized)
+voice:
+  # Default parameters for mystery narration
+  defaults:
+    speed: 0.90  # Slightly slower for suspense (0.5-2.0)
+    expressiveness: 7  # High for tension (1-10)
+    pitch: -3  # Semitones, deeper for older male voice (-12 to +12)
+    emotional_intensity: 7  # Elevated for mystery (1-10)
+    pause_duration: 2.0  # Extended pauses for drama (0.5-3.0)
+    intonation_emphasis: 7  # Strong for foreshadowing (1-10)
+    breath_frequency: 6  # Natural storytelling rhythm (1-10)
+
+  # Voice profile storage
+  profiles_dir: "config/voice_profiles"
+  default_profile: "mystery_narrator"
+
+# Assets Paths
+assets:
+  reference_voices_dir: "assets/reference_voices"
+  ending_snippet: "assets/ending_snippet.mp3"
+
+# Output Settings
+output:
+  directory: "output/generated"
+  filename_pattern: "{timestamp}_{title_slug}.mp3"  # e.g., "20250125_143022_antique_vase_mystery.mp3"
+
+# Document Processing
+document:
+  max_length: 50000  # Maximum characters per story
+  chunk_size: 1000  # Characters per TTS chunk
+
+# Optional LLM Integration (for text preprocessing)
+llm:
+  enabled: false  # Set to true to enable
+  provider: "anthropic"  # Options: "anthropic" or "openai"
+  model: "claude-3-5-sonnet-20241022"
+  # API keys loaded from .env file
+
+# Logging
+logging:
+  level: "INFO"  # Options: "DEBUG", "INFO", "WARNING", "ERROR"
+  file: "logs/app.log"

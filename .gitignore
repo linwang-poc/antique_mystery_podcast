@@ -205,3 +205,35 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+# Antique Mystery Podcast - Project Specific
+# Generated audio files (keep directory structure)
+output/generated/*.mp3
+output/generated/*.wav
+!output/generated/.gitkeep
+
+# TTS model cache and downloads
+models/
+*.pth
+*.pt
+*.ckpt
+*.safetensors
+
+# Voice profile cache
+config/voice_profiles/*.pkl
+config/voice_profiles/*.cache
+!config/voice_profiles/.gitkeep
+
+# Temporary audio processing files
+tmp/
+*.tmp
+
+# macOS specific
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Keep assets directory for user uploads
+!assets/
+!assets/**/*.mp3
+!assets/**/*.wav
