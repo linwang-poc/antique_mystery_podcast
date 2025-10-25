@@ -4,8 +4,10 @@
 
 This plan outlines the development of a voice narration application that converts antique mystery stories into podcast-quality audio files using AI voice cloning technology. The application will have two modes: Training Mode (one-time setup) and Operating Mode (production use).
 
-**Recommended TTS Engine:** Chatterbox (MIT License) or F5-TTS
-**Alternative:** Coqui XTTS v2 (non-commercial use only)
+**Selected TTS Engine:** Chatterbox (MIT License) - chosen for commercial-friendly licensing and superior voice quality
+**Deployment:** Fully local application running on user's machine
+**Audio Format:** MP3 input files supported (reference voice, ending snippet)
+**Key Feature:** Voice tuning specifically optimized for mystery storytelling (suspense, pauses, intonation)
 
 ---
 
@@ -15,24 +17,31 @@ This plan outlines the development of a voice narration application that convert
 
 **Backend:**
 - Python 3.10+
-- FastAPI (web framework for API endpoints)
+- FastAPI (web framework for local API endpoints)
 - PyTorch (deep learning framework)
-- TTS Engine: Chatterbox or F5-TTS
-- pydub (audio processing and concatenation)
+- **TTS Engine: Chatterbox** (Resemble AI - MIT License)
+- pydub + ffmpeg (audio processing, MP3/WAV conversion, concatenation)
 - python-docx (Word document parsing)
 
 **Frontend:**
-- Gradio (simple, fast Python-based UI) OR
+- Gradio (simple, fast Python-based UI - recommended for local deployment) OR
 - Streamlit (alternative simple UI framework)
-- HTML/CSS/JavaScript (if custom UI needed)
+- Runs locally on localhost (no cloud deployment)
 
 **Storage:**
 - Local filesystem for voice profiles
-- Local filesystem for audio assets (ending snippet, generated files)
-- SQLite or JSON for configuration/metadata (optional)
+- Local filesystem for audio assets (MP3 ending snippet, generated files)
+- Local JSON for configuration/metadata
+- All data remains on user's machine
+
+**Audio Processing:**
+- MP3 format support (input and output)
+- WAV format support (processing and output)
+- ffmpeg for format conversion
+- pydub for audio manipulation
 
 **Optional LLM Integration:**
-- OpenAI API (if text preprocessing needed)
+- OpenAI API (if text preprocessing needed - API calls only, all other processing local)
 - Anthropic Claude API (alternative)
 
 ---
@@ -161,13 +170,16 @@ antique_mystery_podcast/
    - Error handling and retries
 
 2. **Voice Cloning Module** (`src/tts/voice_cloner.py`)
-   - Implement reference audio loading
+   - Implement reference audio loading (MP3/WAV support)
    - Voice profile creation from sample
-   - Parameter tuning interface:
-     - Speed/pace adjustment
-     - Expressiveness control
-     - Pitch/tone modification
-     - Emotional range settings
+   - Parameter tuning interface **optimized for mystery storytelling**:
+     - Speed/pace adjustment (slower for suspense)
+     - Expressiveness control (tension, anticipation)
+     - Pitch/tone modification (narrator voice quality)
+     - Emotional range settings (suspense, revelation, tension)
+     - **Pause duration control** (strategic pauses for dramatic effect)
+     - **Intonation patterns** (building suspense, foreshadowing)
+     - **Breathing patterns** (natural pauses, dramatic timing)
    - Voice profile serialization/deserialization
    - Voice profile storage
 
@@ -203,13 +215,16 @@ antique_mystery_podcast/
    - Voice profile saving
 
 2. **Training UI** (`src/ui/training_ui.py`)
-   - Audio file upload component
-   - Parameter adjustment sliders/inputs:
-     - Speed (0.5x - 2.0x)
-     - Expressiveness (1-10 scale)
-     - Pitch adjustment (-12 to +12 semitones)
-     - Emotional intensity (1-10 scale)
-   - "Generate Test Sample" button
+   - Audio file upload component (MP3 format support)
+   - Parameter adjustment sliders/inputs **for mystery storytelling**:
+     - Speed (0.5x - 2.0x) - slower for suspense
+     - Expressiveness (1-10 scale) - tension and anticipation
+     - Pitch adjustment (-12 to +12 semitones) - narrator voice
+     - Emotional intensity (1-10 scale) - suspense level
+     - **Pause duration (0.5x - 3.0x)** - dramatic pauses
+     - **Intonation emphasis (1-10 scale)** - building suspense
+     - **Breath frequency (1-10 scale)** - natural storytelling rhythm
+   - "Generate Test Sample" button (test with mystery text)
    - Audio playback for comparison
    - "Save Voice Profile" button
    - Status messages and progress bars
@@ -401,93 +416,110 @@ antique_mystery_podcast/
 
 ### TTS Engine Selection & Setup
 
-**Option 1: Chatterbox (Recommended)**
+**Selected Engine: Chatterbox (Resemble AI)**
+
 ```bash
+# Install PyTorch (with CUDA support if GPU available)
 pip install torch torchaudio
-pip install chatterbox-tts  # hypothetical package name
+
+# Install Chatterbox TTS
+# Check official Resemble AI GitHub for exact installation commands
+pip install chatterbox-tts  # or follow official installation guide
+
+# Install audio processing dependencies
+pip install pydub
+# ffmpeg must be installed separately on system
 ```
 
-Advantages:
-- MIT License (commercial-friendly)
-- High quality, beats commercial TTS
-- 5-10 seconds for cloning
-- Strong prosody for storytelling
+**Why Chatterbox:**
+- **MIT License**: Commercial-friendly, no restrictions on monetization
+- **Superior Quality**: Beats ElevenLabs in blind tests (63.8% preference rate)
+- **Fast Cloning**: 5-10 seconds of reference audio
+- **Zero-Shot**: No training required
+- **Strong Prosody**: Perfect for mystery storytelling with dramatic pauses
+- **MP3 Support**: Can process MP3 input files
+- **Local Deployment**: Runs entirely on user's machine
 
-Setup considerations:
-- May require model download on first run
-- GPU recommended but not required
-- Check official docs for exact installation
+**Setup Considerations:**
+- Model download on first run (~500MB-2GB depending on model)
+- GPU recommended for faster generation (RTX 3060 or better ideal)
+- CPU mode available but slower (acceptable for occasional use)
+- Requires ~8GB RAM minimum, 16GB recommended
+- ffmpeg must be installed for MP3 processing
 
-**Option 2: F5-TTS**
+**Installation Verification:**
 ```bash
-pip install torch torchaudio
-pip install f5-tts
+# Test TTS engine
+python -c "import chatterbox; print(chatterbox.__version__)"
+
+# Test ffmpeg
+ffmpeg -version
 ```
 
-Advantages:
-- Excellent emotional depth
-- Very fast (0.15 real-time factor)
-- 10 seconds for cloning
-- 335M parameters
+### Voice Cloning Parameters (Mystery-Optimized)
 
-**Option 3: Coqui XTTS v2 (if non-commercial is acceptable)**
-```bash
-pip install TTS
-```
-
-Advantages:
-- Well-documented
-- Proven in production
-- Easy HTTP API via xtts-api-server
-- 6-10 seconds for cloning
-
-Licensing caveat:
-- Non-commercial use only
-
-### Voice Cloning Parameters
-
-The training UI should expose these parameters:
+The training UI should expose these parameters specifically tuned for mystery storytelling:
 
 1. **Speed (0.5x - 2.0x)**
-   - Slower speed for thoughtful, deliberate narration
-   - Recommended for "grandpa storyteller": 0.9x - 1.0x
+   - Slower speed for thoughtful, suspenseful narration
+   - **Recommended for mystery stories: 0.85x - 0.95x** (slightly slower for tension)
 
 2. **Expressiveness (1-10)**
    - Higher = more emotional variation
-   - Recommended for storytelling: 6-8
+   - **Recommended for mystery stories: 7-9** (high expressiveness for suspense)
 
 3. **Pitch Adjustment (-12 to +12 semitones)**
    - Negative values for deeper, older voice
-   - Recommended: -2 to -4 for older male voice
+   - **Recommended: -2 to -4** for older male mystery narrator
 
 4. **Emotional Intensity (1-10)**
    - Controls overall emotional energy
-   - Recommended for mystery stories: 5-7
+   - **Recommended for mystery stories: 6-8** (elevated for tension)
 
-5. **Pause Duration Multiplier (0.5x - 2.0x)**
-   - Longer pauses for dramatic effect
-   - Recommended: 1.2x - 1.5x
+5. **Pause Duration Multiplier (0.5x - 3.0x)**
+   - **CRITICAL FOR MYSTERY**: Longer pauses for dramatic effect and suspense
+   - **Recommended: 1.5x - 2.5x** (significant pauses for plot reveals)
+   - Allows listeners to absorb twists and build anticipation
+
+6. **Intonation Emphasis (1-10)** *(NEW - Mystery-specific)*
+   - Controls how dramatically intonation changes for suspense building
+   - **Recommended: 7-8** (strong intonation for foreshadowing)
+
+7. **Breath Frequency (1-10)** *(NEW - Mystery-specific)*
+   - Natural breathing patterns for storytelling rhythm
+   - **Recommended: 6-7** (frequent enough to feel natural, strategic placement)
 
 ### Audio Processing Specifications
 
 **Input Audio (Reference Voice):**
-- Format: WAV (preferred) or MP3
-- Sample Rate: 22050 Hz or 44100 Hz
-- Channels: Mono (stereo will be converted)
-- Duration: 6-10 seconds minimum
-- Quality: Clean, no background noise
+- **Format: MP3 (primary) or WAV**
+- Sample Rate: Any (will be resampled to 22050 Hz internally)
+- Channels: Mono or Stereo (stereo will be converted to mono)
+- Duration: 5-10 seconds minimum (Chatterbox requirement)
+- Quality: Clean, minimal background noise
+- **Conversion: MP3 → WAV internally for TTS processing**
 
 **Output Audio:**
-- Format: WAV (for quality) or MP3 (for size)
+- Format: MP3 (primary, for podcast distribution) or WAV (for quality)
 - Sample Rate: 22050 Hz (standard for speech)
 - Channels: Mono
-- Bit Depth: 16-bit
-- Compression: None (WAV) or 192kbps (MP3)
+- Bit Depth: 16-bit (for WAV)
+- Compression: 192kbps CBR or 160-192kbps VBR (for MP3)
 
 **Ending Snippet:**
-- Should match output specifications
-- Volume-normalized to -20 dB LUFS
-- Crossfade duration: 0.5-1.0 seconds (optional)
+- **Format: MP3 (as provided by user)**
+- Will be converted to match output specifications
+- Volume-normalized to -20 dB LUFS (match narration level)
+- Crossfade duration: 0.5-1.0 seconds (smooth transition)
+- Processed locally (no cloud services)
+
+**Format Conversion Pipeline:**
+1. Load MP3 files using pydub + ffmpeg
+2. Convert to WAV for TTS processing
+3. Process narration through Chatterbox TTS
+4. Normalize audio levels
+5. Concatenate narration + ending snippet
+6. Export as MP3 or WAV (user choice)
 
 ### Text Processing Considerations
 
@@ -608,13 +640,16 @@ The training UI should expose these parameters:
 
 - [ ] Python 3.10+ installed
 - [ ] PyTorch installed (with CUDA if GPU available)
-- [ ] TTS engine installed and tested
+- [ ] **Chatterbox TTS engine installed and tested**
+- [ ] **ffmpeg installed (for MP3 processing)**
 - [ ] All dependencies in requirements.txt
-- [ ] Configuration files created (.env, config.yaml)
-- [ ] Reference voice sample prepared
-- [ ] Ending snippet audio file prepared
+- [ ] Configuration files created (config.yaml)
+- [ ] **Reference voice sample prepared (MP3 format)**
+- [ ] **Ending snippet audio file prepared (MP3 format)**
 - [ ] Output directory created
 - [ ] All tests passing
+- [ ] **Local hosting verified (runs on localhost)**
+- [ ] **No cloud dependencies required**
 - [ ] Documentation complete
 - [ ] User guide available
 
@@ -729,21 +764,29 @@ The training UI should expose these parameters:
 ## Success Metrics
 
 **Training Mode Success:**
-- Voice cloning time < 2 minutes
+- Voice cloning time < 2 minutes (from MP3 reference)
 - User satisfaction with cloned voice quality
+- **Mystery-appropriate tone achieved** (suspense, tension, pacing)
+- **Strategic pauses and intonation work for dramatic effect**
 - Successful voice profile save/load
+- All processing done locally
 
 **Operating Mode Success:**
-- Processing time < 2x story duration
+- Processing time < 2x story duration (5-min story → <10-min processing)
 - Audio quality rating > 8/10
+- **Mystery storytelling quality** (proper pacing, suspense, pauses)
 - No critical errors in 10 consecutive runs
-- Smooth ending snippet integration
+- **Smooth ending snippet integration** (MP3 + generated narration)
+- **Output in MP3 format** ready for podcast distribution
+- **Runs entirely on local machine** (no cloud dependencies)
 
 **Overall Success:**
-- Complete story-to-podcast in < 10 minutes
-- Output suitable for podcast distribution
+- Complete story-to-podcast in < 10 minutes (typical 5-minute story)
+- **Output captures mystery genre requirements** (suspense, pauses, intonation)
+- Output suitable for podcast distribution (proper MP3 format)
 - User can operate without technical assistance
-- Application runs on standard hardware
+- Application runs on standard hardware (GPU optional)
+- **All data remains local** (privacy and control)
 
 ---
 
@@ -758,15 +801,18 @@ This development plan requires approval before implementation begins.
 - [ ] Resource requirements confirmed
 
 **Ready to Proceed:**
-- [ ] TTS engine choice finalized
-- [ ] Reference voice sample available
-- [ ] Ending snippet prepared
-- [ ] Development environment ready
+- [x] **TTS engine choice finalized: Chatterbox (MIT License)**
+- [ ] Reference voice sample available (MP3 format)
+- [ ] Ending snippet prepared (MP3 format)
+- [ ] Development environment ready (Python 3.10+, ffmpeg)
+- [x] **Local hosting confirmed as requirement**
+- [x] **Mystery storytelling parameters defined**
 
 ---
 
 **Next Steps After Approval:**
-1. Finalize TTS engine choice (Chatterbox vs F5-TTS vs Coqui)
-2. Set up development environment
-3. Begin Phase 0: Environment Setup
-4. Regular progress updates after each phase
+1. ✓ TTS engine finalized: **Chatterbox**
+2. Set up development environment (Python, PyTorch, Chatterbox, ffmpeg)
+3. Prepare MP3 audio assets (reference voice, ending snippet)
+4. Begin Phase 0: Environment Setup
+5. Regular progress updates after each phase

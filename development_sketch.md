@@ -22,16 +22,25 @@ An application that converts antique mystery stories into voice-narrated podcast
    - Use existing AI-generated voice sample as reference
    - Clone voice characteristics: timbre, pace, intonation, style
    - Maintain consistency across all generated episodes
+   - **CRITICAL for Mystery Genre**: Voice must be refined and tuned to capture:
+     - Appropriate tone for mystery storytelling (suspenseful, engaging)
+     - Strategic use of pauses for dramatic effect
+     - Proper intonation to build tension and suspense
+     - Pacing that allows listeners to absorb plot twists
+     - Emotional range suitable for mystery narratives
 
 ---
 
 ## Technical Requirements
 
 ### Technology Constraints
-- **Open Source**: All components must be open source
+- **Open Source**: All components must be open source (with commercial-friendly licenses)
 - **Exception**: LLM models can use frontier APIs (OpenAI or Claude)
   - API keys will be provided by user
-- **Local Hosting**: Prefer self-hosted solutions when possible
+- **Local Hosting**: REQUIRED - Application must run entirely on local machine
+  - No cloud dependencies for core functionality
+  - All processing done locally
+  - All data stored locally
 
 ### Operating Modes
 
@@ -59,14 +68,16 @@ Initial setup to create the cloned voice profile.
 
 **Workflow:**
 1. Ingest sample voice file (AI-generated voice user likes)
+   - **Input Format**: MP3 files (will be converted internally as needed)
 2. Use voice cloning software to extract voice characteristics
-3. Fine-tune cloning parameters:
-   - Speaking speed
-   - Expressiveness
-   - Pitch/tone
-   - Emotional range
-   - Breathing/pauses
-4. Test generated samples
+3. Fine-tune cloning parameters specifically for mystery storytelling:
+   - Speaking speed (slower for suspense)
+   - Expressiveness (capturing mystery tone)
+   - Pitch/tone (appropriate for narrator voice)
+   - Emotional range (suspense, tension, revelation)
+   - Breathing/pauses (strategic pauses for dramatic effect)
+   - Intonation patterns (building suspense, plot reveals)
+4. Test generated samples with mystery story excerpts
 5. Save final cloned voice profile for Operating Mode
 
 **Features:**
@@ -108,36 +119,47 @@ Initial setup to create the cloned voice profile.
 
 ## Package Research & Recommendations
 
-### Primary Candidate: Coqui TTS (XTTS v2)
+### Selected TTS Engine: Chatterbox (Resemble AI)
 
-**Why Coqui TTS / XTTS v2:**
-- **Voice Cloning**: Can clone target speaker with 6-10 seconds of reference audio
-- **Style Transfer**: Transfers intonation, emotion, pacing from reference
-- **Multilingual**: Supports multiple languages if needed
-- **Expressive**: Captures emotional tone (warm, storytelling, serious)
-- **Flexibility**: Can achieve various "grandpa" styles (wise, tired, grumpy)
-- **API Available**: `xtts-api-server` provides HTTP endpoint
-  - Default: localhost:8020
-  - POST text + voice profile → get WAV audio
-  - Supports streaming
-- **Self-Hosted**: No vendor lock-in, no per-character billing
-- **Open Source**: Permissive license (MPL/MIT-style)
+**Why Chatterbox:**
+- **MIT License**: Fully commercial-friendly, allowing future monetization
+- **Superior Quality**: Beats ElevenLabs in blind tests (63.8% listener preference)
+- **Fast Voice Cloning**: Only 5-10 seconds of reference audio required
+- **Zero-Shot**: No training required for voice cloning
+- **Strong Prosody**: Excellent natural emotional expression, perfect for mystery storytelling
+- **Expressiveness**: Can capture suspense, tension, and dramatic pauses
+- **State-of-the-Art**: 2025 cutting-edge open-source TTS technology
+- **Self-Hosted**: Complete local control, no vendor lock-in
+- **MP3 Support**: Can handle MP3 input files (with conversion)
 
 **Technical Requirements:**
 - Python 3.10+ environment
 - PyTorch (GPU recommended for speed, CPU works but slower)
-- 6-10 seconds clean voice reference (mono WAV, ~22kHz)
-- Reasonable compute resources
+- 5-10 seconds of clean voice reference (MP3 or WAV)
+- Reasonable compute resources (works on standard hardware)
 
-**Alternative Candidates:**
-1. **Chatterbox (Resemble AI)**
-   - Newer, high-quality TTS
-   - MIT-style license
-   - Strong natural prosody
-   - Would need additional prompting for "old man" tone
-   - Less established than Coqui for voice cloning
+**Why NOT Coqui XTTS v2:**
+- **Licensing Issue**: Coqui Public Model License restricts to NON-COMMERCIAL use only
+- This would prevent future commercial use/monetization
+- Otherwise a solid choice technically
 
-**Verdict**: Coqui TTS/XTTS v2 is the recommended choice for this project.
+**Other Alternatives Considered:**
+1. **F5-TTS**
+   - Excellent emotional depth and very fast (0.15 real-time factor)
+   - 335M parameters, great for mystery storytelling
+   - Check licensing for commercial use
+
+2. **OpenVoice v2**
+   - MIT License (commercial-friendly)
+   - Only 3 seconds of reference audio needed
+   - Solid multilingual support
+
+**Final Verdict**: **Chatterbox** is selected for its combination of:
+- Commercial-friendly licensing
+- Superior voice quality and prosody
+- Excellent expressiveness for mystery genre requirements
+- Fast cloning with minimal reference audio
+- Local hosting capability
 
 ---
 
@@ -152,7 +174,13 @@ Initial setup to create the cloned voice profile.
 ### Audio Quality
 - Input text quality affects narration quality
 - Reference audio should be clean, clear, minimal background noise
+- **Audio Formats**:
+  - Input: MP3 files (will be converted to WAV internally for processing)
+  - Reference voice sample: MP3 format
+  - Ending snippet: MP3 format (will be normalized and converted as needed)
+  - Output: MP3 or WAV (user preference)
 - Ending snippet should match quality/volume of generated narration
+- All audio processing done locally (no cloud services)
 
 ### Performance
 - GPU recommended for faster generation (important for longer stories)
@@ -169,18 +197,22 @@ Initial setup to create the cloned voice profile.
 ## Success Criteria
 
 ### Training Mode Success
-- [ ] Successfully clone voice from provided sample
+- [ ] Successfully clone voice from provided MP3 sample
 - [ ] Generated voice sounds natural and consistent
 - [ ] Tunable parameters produce noticeable, desirable changes
+- [ ] Voice captures appropriate mystery storytelling tone
+- [ ] Strategic pauses and intonation work for suspense
 - [ ] Voice profile saved and reusable
 
 ### Operating Mode Success
 - [ ] Accept text or .docx input
-- [ ] Generate narration in cloned voice
-- [ ] Successfully append ending snippet
-- [ ] Export combined audio file
+- [ ] Generate narration in cloned voice with mystery-appropriate delivery
+- [ ] Proper pacing, pauses, and intonation for suspense
+- [ ] Successfully append ending snippet (MP3 format)
+- [ ] Export combined audio file (MP3 or WAV)
 - [ ] Processing time reasonable for typical story length
 - [ ] Audio quality suitable for podcast distribution
+- [ ] Application runs entirely on local machine
 
 ---
 
