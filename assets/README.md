@@ -6,7 +6,7 @@ This directory contains all audio assets for the Antique Mystery Podcast applica
 
 ```
 assets/
-├── ending_snippet.mp3       # Fixed ending audio (append to all episodes)
+├── ending.mp3       # Fixed ending audio (append to all episodes)
 └── reference_voices/        # Voice samples for training
     ├── training_*.mp3       # Reference voice samples for cloning
     └── testing_*.mp3        # Test story excerpts for parameter tuning
