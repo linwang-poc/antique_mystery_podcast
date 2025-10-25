@@ -32,7 +32,7 @@ antique_mystery_podcast/
 │   ├── config.yaml              # Main configuration
 │   └── voice_profiles/          # Saved voice profiles
 ├── assets/
-│   ├── ending_snippet.mp3       # ⭐ UPLOAD YOUR ENDING HERE
+│   ├── ending.mp3               # ⭐ UPLOAD YOUR ENDING HERE
 │   └── reference_voices/        # ⭐ UPLOAD VOICE SAMPLES HERE
 │       ├── training_*.mp3       # Training voice samples
 │       └── testing_*.mp3        # Test story excerpts
@@ -55,7 +55,7 @@ antique_mystery_podcast/
 
 **Before starting development, upload your audio files:**
 
-#### Location 1: `assets/ending_snippet.mp3`
+#### Location 1: `assets/ending.mp3`
 - Your pre-recorded ending that gets appended to all episodes
 - MP3 format, any duration
 
@@ -72,7 +72,7 @@ antique_mystery_podcast/
 # From your Mac, in the project directory:
 cp ~/Documents/voice_sample/training*.mp3 assets/reference_voices/
 cp ~/Documents/voice_sample/testing*.mp3 assets/reference_voices/
-cp ~/Documents/voice_sample/ending*.mp3 assets/ending_snippet.mp3
+cp ~/Documents/voice_sample/ending*.mp3 assets/ending.mp3
 
 # Commit to git
 git add assets/

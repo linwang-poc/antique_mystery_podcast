@@ -57,7 +57,7 @@ voice:
 # Assets Paths
 assets:
   reference_voices_dir: "assets/reference_voices"
-  ending_snippet: "assets/ending_snippet.mp3"
+  ending_snippet: "assets/ending.mp3"
 
 # Output Settings
 output:
