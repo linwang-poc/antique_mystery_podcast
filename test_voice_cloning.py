@@ -93,31 +93,25 @@ def check_environment():
         return False
     print(f"\n✓ Found {len(training_files)} training voice files")
 
-    # Check for TTS engine
+    # Check for TTS engine (prioritize Chatterbox)
     tts_engine = None
     try:
-        from TTS.api import TTS
-        tts_engine = "coqui"
-        import TTS as tts_module
-        print(f"✓ Coqui TTS found (version: {tts_module.__version__})")
+        from chatterbox.tts import ChatterboxTTS
+        tts_engine = "chatterbox"
+        print("✓ Chatterbox TTS found (Resemble AI)")
     except ImportError:
         try:
-            import chatterbox
-            tts_engine = "chatterbox"
-            print(f"✓ Chatterbox TTS found (version: {chatterbox.__version__})")
+            from TTS.api import TTS
+            tts_engine = "coqui"
+            import TTS as tts_module
+            print(f"✓ Coqui TTS found (version: {tts_module.__version__})")
         except ImportError:
-            try:
-                import gpt_sovits
-                tts_engine = "gpt-sovits"
-                print("✓ GPT-SoVITS found")
-            except ImportError:
-                print("\n❌ ERROR: No TTS engine found!")
-                print("   Please install one of:")
-                print("   - pip install TTS  (Coqui TTS - recommended for M1)")
-                print("   - pip install chatterbox-tts")
-                print("   - pip install gpt-sovits-python")
-                print("\n   See SETUP_INSTRUCTIONS.md for detailed setup.")
-                return False
+            print("\n❌ ERROR: No TTS engine found!")
+            print("   Please install one of:")
+            print("   - pip install chatterbox-tts  (Recommended - open source)")
+            print("   - pip install TTS  (Coqui TTS alternative)")
+            print("\n   See CHATTERBOX_RESEARCH.md for installation details.")
+            return False
 
     # Check output directory
     output_dir = Path("output/voice_tests")
@@ -135,7 +129,25 @@ def load_tts_engine(engine_type):
     """Load and initialize the TTS engine."""
     print(f"Loading {engine_type} TTS engine...")
 
-    if engine_type == "coqui":
+    if engine_type == "chatterbox":
+        try:
+            from chatterbox.tts import ChatterboxTTS
+
+            # Use CPU for M1 Mac
+            device = "cpu"
+            print(f"✓ Using device: {device}")
+
+            print("  Loading Chatterbox model (first time may download ~1GB)...")
+            model = ChatterboxTTS.from_pretrained(device=device)
+            print("✓ Chatterbox TTS loaded successfully")
+            return model
+        except Exception as e:
+            print(f"❌ Error loading Chatterbox: {e}")
+            import traceback
+            traceback.print_exc()
+            return None
+
+    elif engine_type == "coqui":
         try:
             from TTS.api import TTS
             import torch
@@ -163,15 +175,6 @@ def load_tts_engine(engine_type):
             traceback.print_exc()
             return None
 
-    elif engine_type == "chatterbox":
-        try:
-            from chatterbox import ChatterboxTTS
-            print("✓ Chatterbox TTS loaded")
-            return ChatterboxTTS()
-        except Exception as e:
-            print(f"❌ Error loading Chatterbox: {e}")
-            return None
-
     elif engine_type == "gpt-sovits":
         try:
             from gpt_sovits import GPTSOVITS
@@ -184,11 +187,11 @@ def load_tts_engine(engine_type):
     return None
 
 
-def clone_voice(tts_engine, reference_audio_path):
+def clone_voice(tts_engine, reference_audio_path, engine_type="chatterbox"):
     """Clone voice from reference audio."""
     print(f"\nCloning voice from: {reference_audio_path}")
 
-    # For Coqui TTS XTTS v2, voice cloning is done on-the-fly during generation
+    # For Chatterbox and Coqui TTS, voice cloning is done on-the-fly during generation
     # We just need to store the path to the reference audio
     # The actual cloning happens in generate_sample()
 
@@ -196,51 +199,104 @@ def clone_voice(tts_engine, reference_audio_path):
     return str(reference_audio_path)
 
 
-def generate_sample(tts_engine, voice_profile, text, output_path, params):
+def generate_sample(tts_engine, voice_profile, text, output_path, params, engine_type="chatterbox"):
     """Generate audio from text using cloned voice."""
     print(f"Generating: {output_path.name}")
 
     try:
-        # For Coqui TTS XTTS v2:
-        # voice_profile is the path to the reference audio file
-        speaker_wav = voice_profile
+        if engine_type == "chatterbox":
+            # For Chatterbox TTS:
+            # voice_profile is the path to the reference audio file
+            print(f"  Synthesizing with Chatterbox voice cloning...")
 
-        # XTTS v2 supports English language
-        language = "en"
+            # Generate audio with voice cloning
+            # Chatterbox uses audio_prompt_path for zero-shot voice cloning
+            wav = tts_engine.generate(
+                text=text,
+                audio_prompt_path=voice_profile,
+                exaggeration=0.6  # Higher for mystery narration
+            )
 
-        # Generate audio with voice cloning
-        # Note: XTTS v2 doesn't directly support all our parameters,
-        # but we can apply some post-processing
-        print(f"  Synthesizing with cloned voice...")
+            # Save WAV first using torchaudio (more reliable than soundfile)
+            import torch
+            import torchaudio
+            wav_path = str(output_path).replace('.mp3', '.wav')
 
-        # Generate to WAV first
-        wav_path = str(output_path).replace('.mp3', '.wav')
-        tts_engine.tts_to_file(
-            text=text,
-            speaker_wav=speaker_wav,
-            language=language,
-            file_path=wav_path
-        )
+            # Convert to tensor if it's a numpy array
+            if not isinstance(wav, torch.Tensor):
+                import numpy as np
+                wav = torch.from_numpy(wav)
 
-        # Convert WAV to MP3 and apply speed adjustment if needed
-        from pydub import AudioSegment
-        audio = AudioSegment.from_wav(wav_path)
+            # Ensure correct shape (channels, samples)
+            if wav.dim() == 1:
+                wav = wav.unsqueeze(0)  # Add channel dimension
 
-        # Apply speed adjustment (if different from 1.0)
-        speed = params.get("speed", 1.0)
-        if speed != 1.0:
-            # Change speed without changing pitch
-            audio = audio.speedup(playback_speed=speed)
+            # Save as WAV
+            torchaudio.save(wav_path, wav, sample_rate=24000)
 
-        # Export as MP3
-        audio.export(output_path, format="mp3", bitrate="192k")
+            # Convert WAV to MP3 and apply speed adjustment if needed
+            from pydub import AudioSegment
+            audio = AudioSegment.from_wav(wav_path)
 
-        # Clean up WAV file
-        import os
-        os.remove(wav_path)
+            # Apply speed adjustment (if different from 1.0)
+            speed = params.get("speed", 1.0)
+            if speed != 1.0:
+                # Change speed without changing pitch
+                audio = audio.speedup(playback_speed=speed)
 
-        print(f"  ✓ Generated successfully: {output_path}")
-        return True
+            # Export as MP3
+            audio.export(output_path, format="mp3", bitrate="192k")
+
+            # Clean up WAV file
+            import os
+            os.remove(wav_path)
+
+            print(f"  ✓ Generated successfully: {output_path}")
+            return True
+
+        elif engine_type == "coqui":
+            # For Coqui TTS XTTS v2:
+            # voice_profile is the path to the reference audio file
+            speaker_wav = voice_profile
+
+            # XTTS v2 supports English language
+            language = "en"
+
+            # Generate audio with voice cloning
+            print(f"  Synthesizing with cloned voice...")
+
+            # Generate to WAV first
+            wav_path = str(output_path).replace('.mp3', '.wav')
+            tts_engine.tts_to_file(
+                text=text,
+                speaker_wav=speaker_wav,
+                language=language,
+                file_path=wav_path
+            )
+
+            # Convert WAV to MP3 and apply speed adjustment if needed
+            from pydub import AudioSegment
+            audio = AudioSegment.from_wav(wav_path)
+
+            # Apply speed adjustment (if different from 1.0)
+            speed = params.get("speed", 1.0)
+            if speed != 1.0:
+                # Change speed without changing pitch
+                audio = audio.speedup(playback_speed=speed)
+
+            # Export as MP3
+            audio.export(output_path, format="mp3", bitrate="192k")
+
+            # Clean up WAV file
+            import os
+            os.remove(wav_path)
+
+            print(f"  ✓ Generated successfully: {output_path}")
+            return True
+
+        else:
+            print(f"  ❌ Unknown engine type: {engine_type}")
+            return False
 
     except Exception as e:
         print(f"  ❌ Error generating audio: {e}")
@@ -287,7 +343,8 @@ def run_voice_test():
             voice_profile,
             text.strip(),
             output_path,
-            VOICE_PARAMS
+            VOICE_PARAMS,
+            engine_type
         )
 
         if success:
