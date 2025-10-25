@@ -26,9 +26,9 @@ but the handwriting was unmistakable. Her mother's handwriting. But the date,
 the date was impossible. This entry was written three days after her mother's
 death. Margaret's breath caught in her throat as she read the first line.
 If you're reading this, then you know the truth about the Ashworth inheritance.""",
-    "03_tense_confrontation": """You're lying, he whispered, his voice barely audible over the
+    "03_tense_confrontation": """You're lying... he whispered, his voice barely audible over the
 ticking grandfather clock. The curator's smile never wavered. Am I? she replied,
-tilting her head slightly. Then explain why your fingerprints are on the frame.
+tilting her head slightly. Then explain—slowly—why your fingerprints are on the frame.
 The frame that held the stolen Rembrandt. The silence stretched between them
 like a taut wire, ready to snap. Finally, he spoke. You don't understand what
 you're dealing with.""",
@@ -38,23 +38,23 @@ the velvet curtains. Everything in the room was exactly as it had been fifty
 years ago, frozen in time. The air itself seemed to hold its breath, waiting.
 Waiting for someone to wind the key and release whatever secrets the melody
 might reveal.""",
-    "05_plot_twist": """But wait. The painting was a forgery. Detective Morrison had known
+    "05_plot_twist": """But wait! The painting... was a forgery. Detective Morrison had known
 it for weeks. Which meant the real artwork was still missing. And if it was
-still missing, then the killer was still out there. Still watching. Still
-waiting. He turned slowly, scanning the crowd of art collectors. Somewhere
+still missing, then the killer—THE killer—was still out there. Still watching.
+Still waiting. He turned slowly, scanning the crowd of art collectors. Somewhere
 among these faces was a murderer. A murderer who didn't know the truth. Yet.""",
 }
 
 
 # Voice parameters (mystery-optimized defaults).
 VOICE_PARAMS = {
-    "speed": 0.90,  # Slightly slower for suspense
-    "expressiveness": 7,  # High for tension
-    "pitch": -3,  # Deeper for older male voice
-    "emotional_intensity": 7,  # Elevated for mystery
-    "pause_duration": 2.0,  # Extended pauses for drama
-    "intonation_emphasis": 7,  # Strong for foreshadowing
-    "breath_frequency": 6,  # Natural storytelling rhythm
+    "speed": 0.85,  # Further slowdown for tension-building beats
+    "expressiveness": 8,  # Push emotional variation
+    "pitch": -4,  # Slightly deeper to age the narrator up
+    "emotional_intensity": 8,  # Heighten dramatic moments
+    "pause_duration": 2.3,  # Longer pauses for suspense
+    "intonation_emphasis": 8,  # Sharper rises/falls on key words
+    "breath_frequency": 5,  # Fewer breaths to allow lingering silence
 }
 
 
@@ -171,7 +171,7 @@ def generate_sample(
         raw_audio = tts_engine.generate(
             text=text,
             audio_prompt_path=str(reference_audio),
-            exaggeration=0.6,
+            exaggeration=0.7,
         )
         wav_tensor, sample_rate = _prepare_wav_tensor(raw_audio, tts_engine)
 
