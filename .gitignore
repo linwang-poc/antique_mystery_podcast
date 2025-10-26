@@ -229,6 +229,8 @@ config/voice_profiles/*.cache
 # Temporary audio processing files
 tmp/
 *.tmp
+logs/*.log
+logs/*.log.*
 
 # macOS specific
 .DS_Store
