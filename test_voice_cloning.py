@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+#source venv/bin/activate
+
 """Voice Cloning Test Script for the Antique Mystery Podcast project."""
 
 from __future__ import annotations
@@ -50,7 +52,7 @@ among these faces was a murderer. A murderer who didn't know the truth. Yet.""",
 VOICE_PARAMS = {
     "speed": 0.85,  # Further slowdown for tension-building beats
     "expressiveness": 8,  # Push emotional variation
-    "pitch": -4,  # Slightly deeper to age the narrator up
+    "pitch": -1,  # Keep depth but ease the gravel
     "emotional_intensity": 8,  # Heighten dramatic moments
     "pause_duration": 2.3,  # Longer pauses for suspense
     "intonation_emphasis": 8,  # Sharper rises/falls on key words
