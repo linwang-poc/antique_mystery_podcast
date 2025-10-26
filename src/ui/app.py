@@ -43,10 +43,9 @@ def create_app(registry: VoiceRegistry, service: TTSService) -> gr.Blocks:
                 progress(value, desc=message)
 
             output_path = service.generate_episode(text, active_voice, notify=notifier)
-            message = f"The story is ready for review as {output_path.name}."
             if warning:
-                message = f"{warning}\n\n{message}"
-            return str(output_path.resolve()), message
+                progress(1.0, desc=warning)
+            return (str(output_path.resolve()),)
         except Exception as exc:  # noqa: BLE001
             logger.exception("Failed to generate narration.")
             raise gr.Error(f"Generation failed: {exc}") from exc
@@ -74,12 +73,11 @@ def create_app(registry: VoiceRegistry, service: TTSService) -> gr.Blocks:
         generate_btn = gr.Button("Generate Podcast")
 
         output_file = gr.File(label="Download Narration", interactive=False, file_count="single")
-        status_box = gr.Textbox(label="Status", interactive=False)
 
         generate_btn.click(
             handle_generate,
             inputs=[story, doc_input, voice],
-            outputs=[output_file, status_box],
+            outputs=[output_file],
         )
 
     return demo
