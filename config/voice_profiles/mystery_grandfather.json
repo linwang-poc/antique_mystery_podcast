@@ -4,9 +4,9 @@
   "description": "Slow, suspenseful narrator tuned for antique mystery stories.",
   "reference_mp3": "assets/reference_voices/training_01.mp3",
   "params": {
-    "speed": 0.85,
+    "speed": 0.8,
     "expressiveness": 8,
-    "pitch": -1,
+    "pitch": 3,
     "emotional_intensity": 8,
     "pause_duration": 2.3,
     "intonation_emphasis": 8,

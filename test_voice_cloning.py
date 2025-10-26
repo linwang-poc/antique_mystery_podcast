@@ -50,13 +50,14 @@ among these faces was a murderer. A murderer who didn't know the truth. Yet.""",
 
 # Voice parameters (mystery-optimized defaults).
 VOICE_PARAMS = {
-    "speed": 0.85,  # Further slowdown for tension-building beats
-    "expressiveness": 8,  # Push emotional variation
-    "pitch": -1,  # Keep depth but ease the gravel
-    "emotional_intensity": 8,  # Heighten dramatic moments
-    "pause_duration": 2.3,  # Longer pauses for suspense
-    "intonation_emphasis": 8,  # Sharper rises/falls on key words
-    "breath_frequency": 5,  # Fewer breaths to allow lingering silence
+    "exaggeration": 0.85,  # Chatterbox expressiveness control
+    "speed": 0.85,  # Slow pacing for deeper suspense
+    "expressiveness": 9,  # Push emotional variation further
+    "pitch": 5,  # Brighten tone to offset slower pacing
+    "emotional_intensity": 9,  # Heighten dramatic moments
+    "pause_duration": 2.6,  # Longer pauses within and between sentences
+    "intonation_emphasis": 9,  # Sharper rises/falls on crucial words
+    "breath_frequency": 4,  # Fewer breaths for lingering silence
 }
 
 
@@ -173,7 +174,7 @@ def generate_sample(
         raw_audio = tts_engine.generate(
             text=text,
             audio_prompt_path=str(reference_audio),
-            exaggeration=0.7,
+            exaggeration=params.get("exaggeration", 0.7),
         )
         wav_tensor, sample_rate = _prepare_wav_tensor(raw_audio, tts_engine)
 
@@ -266,6 +267,8 @@ def run_voice_test() -> None:
     generated_files: List[Path] = []
     for sample_id, sample_text in MYSTERY_SAMPLES.items():
         output_path = output_dir / f"{sample_id}.mp3"
+        if sample_id != '01_suspenseful_opening':
+            continue
         if generate_sample(
             tts_engine=tts_engine,
             reference_audio=reference_audio,
