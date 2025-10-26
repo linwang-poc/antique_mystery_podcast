@@ -12,9 +12,17 @@ from __future__ import annotations
 
 import os
 import sys
+import warnings
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, Iterable, List
+
+# Suppress the attention mask warning from transformers
+# This warning occurs because XTTS v2's GPT model has pad_token_id == eos_token_id,
+# making it impossible to automatically infer attention masks during sentence splitting.
+# Setting split_sentences=False in VOICE_PARAMS resolves the root cause by processing
+# entire paragraphs as single units, which also improves thematic coherence.
+warnings.filterwarnings("ignore", message=".*attention mask.*pad token.*eos token.*")
 
 
 BASE_DIR = Path(__file__).parent.resolve()
@@ -37,6 +45,7 @@ VOICE_PARAMS = {
     "pitch": 1,
     "pause_duration": 2.2,
     "exaggeration": 0.6,  # Document purposes; XTTS does not expose this knob.
+    "split_sentences": False,  # Process entire paragraph for better coherence
 }
 
 
@@ -84,8 +93,9 @@ def load_xtts_engine():
         from torch.serialization import add_safe_globals
         from TTS.tts.configs.xtts_config import XttsConfig, XttsAudioConfig
         from TTS.config.shared_configs import BaseDatasetConfig
+        from TTS.tts.models.xtts import XttsArgs
 
-        add_safe_globals([XttsConfig, XttsAudioConfig, BaseDatasetConfig])
+        add_safe_globals([XttsConfig, XttsAudioConfig, BaseDatasetConfig, XttsArgs])
 
         original_torch_load = torch.load
 
@@ -109,6 +119,9 @@ def load_xtts_engine():
 
         traceback.print_exc()
         return None
+    finally:
+        if "original_torch_load" in locals() and "torch" in locals():
+            torch.load = original_torch_load  # type: ignore
 
 
 def generate_sample_xtts(
@@ -128,6 +141,7 @@ def generate_sample_xtts(
             speaker_wav=str(reference_audio),
             language="en",
             file_path=str(wav_path),
+            split_sentences=params.get("split_sentences", False),  # Keep paragraph coherence
         )
 
         audio = AudioSegment.from_wav(wav_path)
