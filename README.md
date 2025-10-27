@@ -340,7 +340,7 @@ antique_mystery_podcast/
 ├── output/                           # 🎧 GENERATED AUDIO FILES
 │   ├── generated/                    # Final podcast episodes (MP3)
 │   │   └── [timestamp]_[title].mp3  # Example: 20250127_123456_the_stolen_vase.mp3
-│   ├── voice_tests/                  # Voice quality test outputs (Chatterbox)
+│   ├── voice_tests_chatterbox/       # Voice quality test outputs (Chatterbox)
 │   ├── voice_tests_xtts/             # Voice quality test outputs (XTTS2)
 │   └── voice_tests_f5tts/            # Voice quality test outputs (F5-TTS)
 │
@@ -621,7 +621,7 @@ output/
 
 ```
 output/
-├── voice_tests/              # Chatterbox test outputs
+├── voice_tests_chatterbox/   # Chatterbox test outputs
 │   └── test_20250127_120000/
 │       ├── 01_suspenseful_opening.mp3
 │       ├── 02_dramatic_revelation.mp3

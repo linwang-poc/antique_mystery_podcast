@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import os
 import re
 from pathlib import Path
 from typing import Optional
@@ -55,7 +56,16 @@ def create_app(registry: VoiceRegistry, service: TTSService) -> gr.Blocks:
             logger.exception("Failed to generate narration.")
             raise gr.Error(f"Generation failed: {exc}") from exc
 
-    with gr.Blocks(title="Antique Mystery Narrator") as demo:
+    with gr.Blocks(title="Antique Mystery Narrator", theme=gr.themes.Soft(primary_hue="slate").set(
+        body_background_fill="*neutral_950",
+        body_background_fill_dark="*neutral_950",
+        background_fill_primary="*neutral_900",
+        background_fill_primary_dark="*neutral_900",
+        background_fill_secondary="*neutral_800",
+        block_background_fill="*neutral_900",
+        block_label_background_fill="*neutral_900",
+        input_background_fill="*neutral_800",
+    )) as demo:
         gr.Markdown(
             "## Antique Mystery Narrator\n"
             "Provide your story text or upload a Word document, then choose a narrator voice."
@@ -65,10 +75,12 @@ def create_app(registry: VoiceRegistry, service: TTSService) -> gr.Blocks:
                 choices=voice_choices,
                 value=default_voice,
                 label="Narrator Voice",
+                scale=3,
             )
             doc_input = gr.File(
                 label="Upload .docx (optional)",
                 file_types=[".docx"],
+                scale=1,
             )
         filename_box = gr.Textbox(
             label="Output Name (optional)",
@@ -80,7 +92,9 @@ def create_app(registry: VoiceRegistry, service: TTSService) -> gr.Blocks:
             lines=12,
             placeholder="Paste your mystery story here...",
         )
-        generate_btn = gr.Button("Generate Podcast")
+        with gr.Row():
+            generate_btn = gr.Button("Generate Podcast", variant="primary")
+            exit_btn = gr.Button("Exit", variant="stop")
 
         output_file = gr.File(label="Download Narration", interactive=False, file_count="single")
 
@@ -89,6 +103,12 @@ def create_app(registry: VoiceRegistry, service: TTSService) -> gr.Blocks:
             inputs=[story, doc_input, voice, filename_box],
             outputs=[output_file],
         )
+
+        def handle_exit():
+            logger.info("Exit button pressed. Shutting down application.")
+            os._exit(0)
+
+        exit_btn.click(handle_exit)
 
     return demo
 

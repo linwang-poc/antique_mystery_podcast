@@ -1,6 +1,6 @@
 {
   "id": "mystery_grandfather",
-  "display_name": "Mystery Grandfather",
+  "display_name": "Mystery Grandfather (Chatterbox)",
   "description": "Slow, suspenseful narrator tuned for antique mystery stories.",
   "engine": "chatterbox",
   "reference_mp3": "assets/reference_voices/training_01.mp3",

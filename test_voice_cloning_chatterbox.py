@@ -13,7 +13,7 @@ from typing import Dict, Iterable, List, Tuple
 
 BASE_DIR = Path(__file__).parent.resolve()
 REFERENCE_VOICE_DIR = BASE_DIR / "assets" / "reference_voices"
-OUTPUT_ROOT = BASE_DIR / "output" / "voice_tests"
+OUTPUT_ROOT = BASE_DIR / "output" / "voice_tests_chatterbox"
 
 
 # Mystery text samples for testing (keep order deterministic for evaluation).

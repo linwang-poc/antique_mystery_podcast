@@ -110,7 +110,7 @@ python test_voice_cloning.py
 
 **Generated files will be in:**
 ```
-output/voice_tests/test_YYYYMMDD_HHMMSS/
+output/voice_tests_chatterbox/test_YYYYMMDD_HHMMSS/
 ├── 01_suspenseful_opening.mp3
 ├── 02_dramatic_revelation.mp3
 ├── 03_tense_confrontation.mp3
@@ -137,7 +137,7 @@ Once you've completed the evaluation:
 
 ```bash
 # Copy the evaluation file to docs/
-cp output/voice_tests/test_YYYYMMDD_HHMMSS/EVALUATION.md docs/voice_test_results.md
+cp output/voice_tests_chatterbox/test_YYYYMMDD_HHMMSS/EVALUATION.md docs/voice_test_results.md
 
 # Commit the results
 git add docs/voice_test_results.md

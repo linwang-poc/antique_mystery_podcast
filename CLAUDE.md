@@ -288,7 +288,7 @@ audio = audio.set_frame_rate(original_rate)
 output/
 ├── generated/                    # Final podcast episodes
 │   └── [YYYYMMDD_HHMMSS]_[title].mp3
-├── voice_tests/                  # Chatterbox test outputs
+├── voice_tests_chatterbox/       # Chatterbox test outputs
 ├── voice_tests_xtts/             # XTTS2 test outputs
 └── voice_tests_f5tts/            # F5-TTS test outputs
 ```
