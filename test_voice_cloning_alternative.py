@@ -17,11 +17,9 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, Iterable, List
 
-# Suppress the attention mask warning from transformers
-# This warning occurs because XTTS v2's GPT model has pad_token_id == eos_token_id,
-# making it impossible to automatically infer attention masks during sentence splitting.
-# Setting split_sentences=False in VOICE_PARAMS resolves the root cause by processing
-# entire paragraphs as single units, which also improves thematic coherence.
+# Suppress the attention mask warning from transformers. We now rely on
+# XTTS's sentence splitter to stay under the 400-token limit, so the model
+# reuses attention masks internally without bubbling up the warning.
 warnings.filterwarnings("ignore", message=".*attention mask.*pad token.*eos token.*")
 
 
@@ -45,7 +43,7 @@ VOICE_PARAMS = {
     "pitch": 1,
     "pause_duration": 2.2,
     "exaggeration": 0.6,  # Document purposes; XTTS does not expose this knob.
-    "split_sentences": False,  # Process entire paragraph for better coherence
+    "split_sentences": True,  # Force sentence-level synthesis to avoid token limit
 }
 
 
@@ -141,7 +139,7 @@ def generate_sample_xtts(
             speaker_wav=str(reference_audio),
             language="en",
             file_path=str(wav_path),
-            split_sentences=params.get("split_sentences", False),  # Keep paragraph coherence
+            split_sentences=bool(params.get("split_sentences", True)),
         )
 
         audio = AudioSegment.from_wav(wav_path)

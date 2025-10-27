@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import logging
+import re
 from pathlib import Path
-from typing import Optional, Tuple
+from typing import Optional
 
 import gradio as gr
 
@@ -26,8 +27,9 @@ def create_app(registry: VoiceRegistry, service: TTSService) -> gr.Blocks:
         story_text: str,
         story_file: Optional[gr.File],
         voice_id: str,
+        desired_name: str,
         progress=gr.Progress(track_tqdm=False),
-    ) -> Tuple[Optional[Path], str]:
+    ) -> str:
         docx_path: Optional[Path] = None
         if story_file is not None and getattr(story_file, "name", None):
             docx_path = Path(story_file.name)
@@ -42,10 +44,13 @@ def create_app(registry: VoiceRegistry, service: TTSService) -> gr.Blocks:
             def notifier(value: float, message: str) -> None:
                 progress(value, desc=message)
 
-            output_path = service.generate_episode(text, active_voice, notify=notifier)
+            filename_hint = _sanitize_filename(desired_name)
+            output_path = service.generate_episode(
+                text, active_voice, title_hint=filename_hint, notify=notifier
+            )
             if warning:
                 progress(1.0, desc=warning)
-            return (str(output_path.resolve()),)
+            return str(output_path.resolve())
         except Exception as exc:  # noqa: BLE001
             logger.exception("Failed to generate narration.")
             raise gr.Error(f"Generation failed: {exc}") from exc
@@ -65,6 +70,11 @@ def create_app(registry: VoiceRegistry, service: TTSService) -> gr.Blocks:
                 label="Upload .docx (optional)",
                 file_types=[".docx"],
             )
+        filename_box = gr.Textbox(
+            label="Output Name (optional)",
+            placeholder="e.g., Haunted_Auction_Narration",
+            lines=1,
+        )
         story = gr.Textbox(
             label="Story Text",
             lines=12,
@@ -76,8 +86,18 @@ def create_app(registry: VoiceRegistry, service: TTSService) -> gr.Blocks:
 
         generate_btn.click(
             handle_generate,
-            inputs=[story, doc_input, voice],
+            inputs=[story, doc_input, voice, filename_box],
             outputs=[output_file],
         )
 
     return demo
+
+
+def _sanitize_filename(value: str) -> Optional[str]:
+    if not value:
+        return None
+    cleaned = re.sub(r"[^0-9A-Za-z ]+", "", value)
+    cleaned = re.sub(r"\s+", " ", cleaned).strip()
+    if not cleaned:
+        return None
+    return cleaned.replace(" ", "_")

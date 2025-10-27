@@ -208,10 +208,6 @@ __marimo__/
 
 # Antique Mystery Podcast - Project Specific
 # Generated audio files (keep directory structure)
-output/generated/
-!output/generated/.gitkeep
-output/voice_tests/**/*.mp3
-voice_test/**/*.mp3
 
 # TTS model cache and downloads
 models/
@@ -240,3 +236,5 @@ logs/*.log.*
 !assets/
 !assets/**/*.mp3
 !assets/**/*.wav
+output/
+!output/.gitkeep

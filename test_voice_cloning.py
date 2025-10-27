@@ -255,7 +255,13 @@ def run_voice_test() -> None:
         print("\n❌ Failed to load TTS engine. Exiting.")
         sys.exit(1)
 
-    reference_audio = training_files[0]
+    # Use training_03.mp3 for voice cloning
+    reference_audio = REFERENCE_VOICE_DIR / "training_03.mp3"
+    if not reference_audio.exists():
+        print(f"\n❌ ERROR: {reference_audio} not found. Using first available training file.")
+        reference_audio = training_files[0]
+
+    print(f"\n✓ Using reference audio: {reference_audio.name}")
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     output_dir = OUTPUT_ROOT / f"test_{timestamp}"
     output_dir.mkdir(parents=True, exist_ok=True)

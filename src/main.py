@@ -1,8 +1,12 @@
 from __future__ import annotations
 
 import logging
+import os
 import sys
 from pathlib import Path
+
+# Fix PYTHONHASHSEED for F5-TTS subprocess spawning
+os.environ.setdefault("PYTHONHASHSEED", "0")
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 if str(PROJECT_ROOT) not in sys.path:
@@ -45,3 +49,4 @@ def _configure_logging(root: Path) -> None:
 
 if __name__ == "__main__":
     main()
+
