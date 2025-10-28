@@ -20,7 +20,6 @@ class VoiceProfile:
     chunk_max_words: Optional[int] = None
     chunk_max_chars: Optional[int] = None
     reference_text: Optional[str] = None
-    split_sentences: bool = False
 
     @property
     def safe_reference(self) -> Path:
@@ -85,7 +84,6 @@ def _load_profile(path: Path) -> VoiceProfile:
         chunk_max_words=chunk_max_words,
         chunk_max_chars=chunk_max_chars,
         reference_text=data.get("reference_text"),
-        split_sentences=bool(data.get("split_sentences", False)),
     )
 
 

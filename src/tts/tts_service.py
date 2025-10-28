@@ -31,6 +31,7 @@ class TTSService:
         self.output_dir = output_dir
         self.ending_path = ending_path
         self._engines: Dict[str, object] = {}
+        self._xtts_tokenizer = None
 
     def generate_episode(
         self,
@@ -49,18 +50,62 @@ class TTSService:
             if profile.chunk_max_chars is not None
             else 1200
         )
-        chunks = list(_chunk_text(text, max_chars=max_chars, max_words=max_words))
+
+        # For XTTS, load engine first to get tokenizer for accurate chunking
+        tokenizer = None
+        if engine_type == "xtts":
+            # Ensure XTTS engine (and tokenizer) is loaded before chunking
+            _ = self._load_engine(engine_type)
+            tokenizer = self._xtts_tokenizer
+
+        # Chunk text with token-aware splitting for XTTS
+        chunks = list(
+            _chunk_text(
+                text,
+                max_chars=max_chars,
+                max_words=max_words,
+                tokenizer=tokenizer,
+                max_tokens=350,  # Safety margin for 400-token XTTS limit
+            )
+        )
+
+        # Log chunk statistics
         word_counts = [len(chunk.split()) for chunk in chunks]
         max_chunk_words = max(word_counts, default=0)
-        logger.info(
-            "Starting synthesis using profile '%s' (engine=%s) in %d chunk(s). Max words per chunk: %d",
-            profile_id,
-            engine_type,
-            len(chunks),
-            max_chunk_words,
-        )
-        for idx, chunk in enumerate(chunks, start=1):
-            logger.debug("Chunk %d preview (%d words): %s", idx, len(chunk.split()), chunk)
+
+        if tokenizer is not None:
+            # Log token counts for XTTS
+            token_counts = [len(tokenizer.encode(chunk)) for chunk in chunks]
+            max_chunk_tokens = max(token_counts, default=0)
+            logger.info(
+                "Starting synthesis using profile '%s' (engine=%s) in %d chunk(s). "
+                "Max tokens per chunk: %d (max words: %d)",
+                profile_id,
+                engine_type,
+                len(chunks),
+                max_chunk_tokens,
+                max_chunk_words,
+            )
+            for idx, chunk in enumerate(chunks, start=1):
+                logger.debug(
+                    "Chunk %d: %d tokens, %d words - preview: %s",
+                    idx,
+                    token_counts[idx - 1],
+                    word_counts[idx - 1],
+                    chunk[:100] + "..." if len(chunk) > 100 else chunk,
+                )
+        else:
+            # Fallback logging for non-XTTS engines
+            logger.info(
+                "Starting synthesis using profile '%s' (engine=%s) in %d chunk(s). Max words per chunk: %d",
+                profile_id,
+                engine_type,
+                len(chunks),
+                max_chunk_words,
+            )
+            for idx, chunk in enumerate(chunks, start=1):
+                logger.debug("Chunk %d preview (%d words): %s", idx, len(chunk.split()), chunk)
+
         if notify:
             notify(0.05, f"Generating narration in {len(chunks)} chunk(s)...")
 
@@ -182,6 +227,21 @@ class TTSService:
                     )
                 except AttributeError:
                     logger.warning("Unable to adjust XTTS character limit; continuing.")
+
+            # Load XTTS tokenizer for accurate token counting
+            try:
+                from transformers import AutoTokenizer
+                self._xtts_tokenizer = AutoTokenizer.from_pretrained(
+                    "coqui/XTTS-v2", use_fast=False
+                )
+                logger.info("XTTS tokenizer loaded for accurate token counting.")
+            except Exception as tokenizer_error:  # noqa: BLE001
+                logger.warning(
+                    "Failed to load XTTS tokenizer: %s. Falling back to word-based chunking.",
+                    tokenizer_error,
+                )
+                self._xtts_tokenizer = None
+
             logger.info("XTTS v2 loaded.")
             return engine
         except ImportError as exc:
@@ -227,12 +287,8 @@ class TTSService:
         params = profile.params
         wav_path = tmpdir / f"chunk_{chunk_index:02d}.wav"
 
-        split_sentences = (
-            bool(profile.params.get("split_sentences"))
-            if "split_sentences" in profile.params
-            else profile.split_sentences
-        )
-
+        # Always disable XTTS's internal sentence splitting
+        # We handle all chunking externally with token-aware custom splitter
         engine.tts_to_file(
             text=text,
             speaker_wav=str(profile.safe_reference),
@@ -241,7 +297,7 @@ class TTSService:
             temperature=params.get("temperature", 1.0),
             top_k=params.get("top_k"),
             top_p=params.get("top_p"),
-            split_sentences=split_sentences,
+            split_sentences=False,
         )
 
         audio = AudioSegment.from_wav(wav_path)
@@ -297,28 +353,44 @@ class TTSService:
         return audio
 
 
-SENTENCE_BOUNDARY = re.compile(r"[^.!?…]+[.!?…]?")
-
-
-def _split_sentences(paragraph: str) -> List[str]:
-    sentences = [
-        match.group().strip()
-        for match in SENTENCE_BOUNDARY.finditer(paragraph)
-        if match.group().strip()
-    ]
-    return sentences or [paragraph.strip()]
-
-
 def _chunk_text(
     text: str,
     max_chars: Optional[int] = 1200,
     max_words: Optional[int] = None,
+    tokenizer=None,
+    max_tokens: int = 350,
 ) -> Iterable[str]:
+    """
+    Split text into chunks respecting natural boundaries and token limits.
+
+    Hierarchy: Paragraphs (\\n\\n) → Lines (\\n) → Sentences (.) → Clauses (,) → Words
+
+    Args:
+        text: The text to chunk
+        max_chars: Maximum characters per chunk (fallback if no tokenizer)
+        max_words: Maximum words per chunk (fallback if no tokenizer)
+        tokenizer: Optional tokenizer for accurate token counting (XTTS)
+        max_tokens: Maximum tokens per chunk when using tokenizer (default: 350, safety margin for 400 limit)
+    """
+    # Ensure NLTK punkt data is available for sentence tokenization
+    try:
+        import nltk
+        try:
+            nltk.data.find('tokenizers/punkt')
+        except LookupError:
+            logger.info("Downloading NLTK punkt tokenizer data...")
+            nltk.download('punkt', quiet=True)
+    except ImportError:
+        logger.warning("NLTK not available, falling back to regex-based sentence splitting")
+        nltk = None
+
+    # Normalize limits
     if max_chars is not None and max_chars <= 0:
         max_chars = None
     if max_words is not None and max_words <= 0:
         max_words = None
 
+    # Split into paragraphs first (\\n\\n)
     paragraphs = [block.strip() for block in text.split("\n\n") if block.strip()]
     if not paragraphs:
         paragraphs = [text.strip()]
@@ -326,49 +398,208 @@ def _chunk_text(
     chunks: List[str] = []
 
     for paragraph in paragraphs:
-        sentences = _split_sentences(paragraph)
-        current_sentences: List[str] = []
-        current_words = 0
+        # Try splitting by line breaks within paragraphs
+        lines = [line.strip() for line in paragraph.split("\n") if line.strip()]
 
-        for sentence in sentences:
-            words = sentence.split()
-            word_count = len(words)
-            prospective_sentences = current_sentences + [sentence]
-            prospective_words = current_words + word_count
-            prospective_chars = len(" ".join(prospective_sentences))
+        for line in lines:
+            # Split line into sentences using NLTK (handles abbreviations, etc.)
+            if nltk is not None:
+                try:
+                    sentences = nltk.sent_tokenize(line)
+                except Exception:  # noqa: BLE001
+                    # Fallback to basic splitting if NLTK fails
+                    sentences = _split_sentences_fallback(line)
+            else:
+                sentences = _split_sentences_fallback(line)
 
-            if current_sentences and (
-                (max_words is not None and prospective_words > max_words)
-                or (max_chars is not None and prospective_chars > max_chars)
-            ):
-                chunks.append(" ".join(current_sentences).strip())
-                current_sentences = []
-                current_words = 0
+            current_parts: List[str] = []
 
-            if (
-                (max_words is not None and word_count > max_words)
-                or (max_chars is not None and len(sentence) > max_chars)
-            ):
-                if max_words is not None:
-                    step = max_words
-                elif max_chars is not None:
-                    step = max_chars
+            for sentence in sentences:
+                # Check if adding this sentence would exceed limits
+                prospective_text = " ".join(current_parts + [sentence])
+
+                if tokenizer is not None:
+                    # Use accurate token counting
+                    try:
+                        prospective_tokens = len(tokenizer.encode(prospective_text))
+                    except Exception:  # noqa: BLE001
+                        # Fallback to word counting if tokenization fails
+                        prospective_tokens = len(prospective_text.split()) * 1.8  # Rough estimate
+
+                    # If current buffer exists and adding sentence exceeds limit, flush buffer
+                    if current_parts and prospective_tokens > max_tokens:
+                        chunk = " ".join(current_parts).strip()
+                        if chunk:
+                            chunks.append(chunk)
+                            actual_tokens = len(tokenizer.encode(chunk))
+                            logger.debug(
+                                "Chunk created: %d tokens (%d words, %d chars)",
+                                actual_tokens,
+                                len(chunk.split()),
+                                len(chunk),
+                            )
+                            if actual_tokens > max_tokens * 0.9:
+                                logger.warning(
+                                    "Chunk near token limit: %d/%d tokens",
+                                    actual_tokens,
+                                    max_tokens,
+                                )
+                        current_parts = []
+
+                    # Check if single sentence is too long - need to split at clause level
+                    sentence_tokens = len(tokenizer.encode(sentence))
+                    if sentence_tokens > max_tokens:
+                        logger.debug(
+                            "Sentence too long (%d tokens), splitting at clause boundaries",
+                            sentence_tokens,
+                        )
+                        # Split long sentence at clause boundaries (commas)
+                        clause_chunks = _split_at_clauses(sentence, max_tokens, tokenizer)
+                        for clause_chunk in clause_chunks:
+                            chunks.append(clause_chunk)
+                            logger.debug(
+                                "Clause chunk: %d tokens",
+                                len(tokenizer.encode(clause_chunk)),
+                            )
+                        continue
                 else:
-                    chunks.append(sentence.strip())
-                    continue
-                step = max(1, step)
-                for start_idx in range(0, word_count, step):
-                    chunk_sentence = " ".join(words[start_idx : start_idx + step])
-                    chunks.append(chunk_sentence.strip())
-                continue
+                    # Fallback to word/char counting
+                    prospective_words = len(prospective_text.split())
+                    prospective_chars = len(prospective_text)
 
-            current_sentences.append(sentence)
-            current_words += word_count
+                    if current_parts and (
+                        (max_words is not None and prospective_words > max_words)
+                        or (max_chars is not None and prospective_chars > max_chars)
+                    ):
+                        chunk = " ".join(current_parts).strip()
+                        if chunk:
+                            chunks.append(chunk)
+                            logger.debug(
+                                "Chunk created: %d words, %d chars",
+                                len(chunk.split()),
+                                len(chunk),
+                            )
+                        current_parts = []
 
-        if current_sentences:
-            chunks.append(" ".join(current_sentences).strip())
+                    # Check if single sentence exceeds limits
+                    sentence_words = len(sentence.split())
+                    sentence_chars = len(sentence)
+                    if (
+                        (max_words is not None and sentence_words > max_words)
+                        or (max_chars is not None and sentence_chars > max_chars)
+                    ):
+                        logger.debug(
+                            "Sentence too long (%d words), splitting at clause boundaries",
+                            sentence_words,
+                        )
+                        # Split at clause boundaries
+                        limit = max_words if max_words is not None else max_chars
+                        clause_chunks = _split_at_clauses_fallback(sentence, limit, max_words is not None)
+                        chunks.extend(clause_chunks)
+                        continue
+
+                current_parts.append(sentence)
+
+            # Flush remaining parts
+            if current_parts:
+                chunk = " ".join(current_parts).strip()
+                if chunk:
+                    chunks.append(chunk)
+                    if tokenizer is not None:
+                        actual_tokens = len(tokenizer.encode(chunk))
+                        logger.debug(
+                            "Chunk created: %d tokens (%d words, %d chars)",
+                            actual_tokens,
+                            len(chunk.split()),
+                            len(chunk),
+                        )
 
     return [chunk for chunk in chunks if chunk]
+
+
+def _split_sentences_fallback(text: str) -> List[str]:
+    """Fallback regex-based sentence splitting when NLTK unavailable."""
+    pattern = re.compile(r"[^.!?…]+[.!?…]?")
+    sentences = [
+        match.group().strip()
+        for match in pattern.finditer(text)
+        if match.group().strip()
+    ]
+    return sentences or [text.strip()]
+
+
+def _split_at_clauses(sentence: str, max_tokens: int, tokenizer) -> List[str]:
+    """Split a long sentence at clause boundaries (commas) respecting token limits."""
+    # Split by commas
+    clauses = [clause.strip() for clause in sentence.split(",") if clause.strip()]
+
+    if len(clauses) == 1:
+        # No commas, split by words as last resort
+        words = sentence.split()
+        chunks = []
+        current_words = []
+        for word in words:
+            test_chunk = " ".join(current_words + [word])
+            if len(tokenizer.encode(test_chunk)) > max_tokens and current_words:
+                chunks.append(" ".join(current_words))
+                current_words = [word]
+            else:
+                current_words.append(word)
+        if current_words:
+            chunks.append(" ".join(current_words))
+        return chunks
+
+    # Accumulate clauses respecting token limits
+    chunks = []
+    current_clauses = []
+
+    for clause in clauses:
+        # Add comma back except for first clause
+        clause_with_punct = clause if not current_clauses else ", " + clause
+        prospective = "".join(current_clauses) + clause_with_punct
+
+        if current_clauses and len(tokenizer.encode(prospective)) > max_tokens:
+            chunks.append("".join(current_clauses).strip())
+            current_clauses = [clause]
+        else:
+            current_clauses.append(clause_with_punct)
+
+    if current_clauses:
+        chunks.append("".join(current_clauses).strip())
+
+    return chunks
+
+
+def _split_at_clauses_fallback(sentence: str, limit: int, use_words: bool) -> List[str]:
+    """Split long sentence at clause boundaries for word/char fallback mode."""
+    clauses = [clause.strip() for clause in sentence.split(",") if clause.strip()]
+
+    if len(clauses) == 1:
+        # Split by words
+        words = sentence.split()
+        chunks = []
+        for start_idx in range(0, len(words), max(1, limit)):
+            chunks.append(" ".join(words[start_idx : start_idx + limit]))
+        return chunks
+
+    chunks = []
+    current_clauses = []
+
+    for clause in clauses:
+        clause_with_punct = clause if not current_clauses else ", " + clause
+        prospective = "".join(current_clauses) + clause_with_punct
+
+        size = len(prospective.split()) if use_words else len(prospective)
+        if current_clauses and size > limit:
+            chunks.append("".join(current_clauses).strip())
+            current_clauses = [clause]
+        else:
+            current_clauses.append(clause_with_punct)
+
+    if current_clauses:
+        chunks.append("".join(current_clauses).strip())
+
+    return chunks
 
 
 

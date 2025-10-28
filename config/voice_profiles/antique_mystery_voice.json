@@ -10,7 +10,6 @@
     "top_k": 20,
     "top_p": 0.9
   },
-  "split_sentences": true,
   "chunking": {
     "max_words": 100,
     "max_chars": 1200

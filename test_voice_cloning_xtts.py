@@ -43,7 +43,7 @@ VOICE_PARAMS = {
     "pitch": 1,
     "pause_duration": 2.2,
     "exaggeration": 0.6,  # Document purposes; XTTS does not expose this knob.
-    "split_sentences": True,  # Force sentence-level synthesis to avoid token limit
+    "split_sentences": False,  # Disabled - we handle chunking externally with custom token-aware splitter
 }
 
 
