@@ -518,6 +518,66 @@ Each script generates:
 - Generated episodes: `output/generated/[timestamp]_[title].mp3`
 - Example: `output/generated/20250127_143022_the_stolen_rembrandt.mp3`
 
+### VibeVoice Text Formatter (Standalone Utility)
+
+**Purpose**: Convert plain mystery story text into VibeVoice-compatible format for use in Google Colab.
+
+**Why Use This**: VibeVoice requires text formatted with speaker labels (`Speaker 0: ...`). This utility automates the formatting process so you can quickly prepare text for the VibeVoice Colab notebook.
+
+**How to Launch**:
+
+```bash
+# Run the transcriber utility
+bash RUN_TRANSCRIBER.sh
+
+# Or manually
+source venv/bin/activate
+python src/ui/transcriber.py
+```
+
+The app will launch at **http://localhost:7861**
+
+**Workflow**:
+
+1. **Paste your raw story text** in the input box
+   - Can include multiple paragraphs
+   - Can have double line breaks
+   - Can have extra spaces
+2. **Text is automatically formatted** in real-time (or click "Transcribe")
+3. **Copy the formatted output** using the copy button
+4. **Paste into VibeVoice Colab notebook** (Cell 6 - Story Input)
+
+**What It Does**:
+- Adds `Speaker 0: ` prefix to each paragraph (with space after colon)
+- Removes double line breaks
+- Removes extra spaces
+- Preserves paragraph structure with clean `\n\n` separators
+
+**Example**:
+
+**Input (Plain Text)**:
+```
+It was a fog-laden morning when I stumbled upon a peculiar bottle.
+
+The bottle's antiquity was evident, but it was the unsettling aura.
+
+This was no ordinary tonic.
+```
+
+**Output (VibeVoice Format)**:
+```
+Speaker 0: It was a fog-laden morning when I stumbled upon a peculiar bottle.
+
+Speaker 0: The bottle's antiquity was evident, but it was the unsettling aura.
+
+Speaker 0: This was no ordinary tonic.
+```
+
+**Statistics Display**:
+- Shows input word count and paragraph count
+- Shows output word count and paragraph count
+- Updates in real-time as you type
+
 ---
 
 ## TTS Engine Comparison
