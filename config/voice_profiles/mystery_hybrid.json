@@ -1,0 +1,26 @@
+{
+  "id": "mystery_hybrid",
+  "display_name": "Mystery Narrator (Hybrid XTTS+F5)",
+  "engine": "hybrid",
+  "description": "Hybrid mode: Uses XTTS for short chunks (<200 words) and F5-TTS for long chunks (>200 words) to balance speed and quality.",
+  "reference_mp3": "assets/reference_voices/training_01.mp3",
+  "reference_text": "strange, his light uncertain. Critics dismissed him as eccentric. Patrons ignored him. For years he stopped painting altogether",
+  "chunking": {
+    "max_words": 180,
+    "max_chars": 1200,
+    "hybrid_threshold_words": 200
+  },
+  "params": {
+    "speed": 0.9,
+    "xtts": {
+      "temperature": 0.85,
+      "top_k": 20,
+      "top_p": 0.9
+    },
+    "f5tts": {
+      "nfe_step": 16,
+      "cfg_strength": 2.0,
+      "sway_sampling_coef": -1.0
+    }
+  }
+}

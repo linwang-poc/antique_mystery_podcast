@@ -10,7 +10,7 @@
     "max_chars": null
   },
   "params": {
-    "nfe_step": 32,
+    "nfe_step": 16,
     "cfg_strength": 2.0,
     "speed": 0.95,
     "sway_sampling_coef": -1.0

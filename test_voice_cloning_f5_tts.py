@@ -62,7 +62,7 @@ among these faces was a murderer. A murderer who didn't know the truth. Yet.""",
 # F5-TTS Voice parameters
 # Note: F5-TTS has fewer expressive controls than Chatterbox, focusing on faithful reproduction
 F5_TTS_PARAMS = {
-    "nfe_step": 32,           # 16=fast, 32=high quality (Number of Function Evaluations)
+    "nfe_step": 16,           # 16=fast (2x speed), 32=high quality (Number of Function Evaluations)
     "cfg_strength": 2.0,      # Classifier-Free Guidance strength for text adherence
     "speed": 0.95,            # Slightly slower for suspenseful pacing
     "sway_sampling_coef": -1.0,  # Sway sampling coefficient

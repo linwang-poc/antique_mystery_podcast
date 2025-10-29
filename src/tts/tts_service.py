@@ -114,7 +114,18 @@ class TTSService:
         if notify:
             notify(0.05, f"Generating narration in {len(chunks)} chunk(s)...")
 
-        synthesizer = self._load_engine(engine_type)
+        # For hybrid mode, prepare both engines
+        hybrid_mode = engine_type == "hybrid"
+        hybrid_threshold = profile.chunking.get("hybrid_threshold_words", 200) if hybrid_mode else None
+
+        if hybrid_mode:
+            logger.info("Hybrid mode enabled: XTTS (<{} words), F5-TTS (>={}  words)".format(
+                hybrid_threshold, hybrid_threshold
+            ))
+            synthesizer_xtts = self._load_engine("xtts")
+            synthesizer_f5tts = self._load_engine("f5tts")
+        else:
+            synthesizer = self._load_engine(engine_type)
 
         try:
             with TemporaryDirectory(prefix="mystery_chunks_") as tmpdir:
@@ -122,26 +133,46 @@ class TTSService:
                 segments: List[AudioSegment] = []
 
                 for index, chunk in enumerate(chunks, start=1):
+                    chunk_words = len(chunk.split())
+
+                    # Determine engine for this chunk (hybrid mode)
+                    if hybrid_mode:
+                        if chunk_words < hybrid_threshold:
+                            current_engine_type = "xtts"
+                            current_synthesizer = synthesizer_xtts
+                            logger.debug(
+                                "Chunk %d: %d words → XTTS (fast)", index, chunk_words
+                            )
+                        else:
+                            current_engine_type = "f5tts"
+                            current_synthesizer = synthesizer_f5tts
+                            logger.debug(
+                                "Chunk %d: %d words → F5-TTS (unlimited)", index, chunk_words
+                            )
+                    else:
+                        current_engine_type = engine_type
+                        current_synthesizer = synthesizer
+
                     if notify:
                         notify(
                             0.05 + 0.7 * (index / max(len(chunks), 1)),
-                            f"Rendering chunk {index}/{len(chunks)}",
+                            f"Rendering chunk {index}/{len(chunks)} [{current_engine_type.upper()}]",
                         )
                     logger.debug(
                         "Rendering chunk %d/%d (%d chars).", index, len(chunks), len(chunk)
                     )
 
-                    if engine_type == "xtts":
+                    if current_engine_type == "xtts":
                         segment = self._synthesize_chunk_xtts(
-                            engine=synthesizer,
+                            engine=current_synthesizer,
                             profile=profile,
                             text=chunk,
                             tmpdir=tmpdir_path,
                             chunk_index=index,
                         )
-                    elif engine_type == "f5tts":
+                    elif current_engine_type == "f5tts":
                         segment = self._synthesize_chunk_f5tts(
-                            engine=synthesizer,
+                            engine=current_synthesizer,
                             profile=profile,
                             text=chunk,
                             tmpdir=tmpdir_path,
@@ -149,7 +180,7 @@ class TTSService:
                         )
                     else:
                         segment = self._synthesize_chunk_chatterbox(
-                            engine=synthesizer,
+                            engine=current_synthesizer,
                             profile=profile,
                             text=chunk,
                             tmpdir=tmpdir_path,
@@ -564,7 +595,48 @@ def _chunk_text(
                             len(chunk),
                         )
 
+    # Apply sentence overlap for better context continuity
+    if len(chunks) > 1:
+        chunks = _add_sentence_overlap(chunks)
+
     return [chunk for chunk in chunks if chunk]
+
+
+def _add_sentence_overlap(chunks: List[str], overlap_sentences: int = 1) -> List[str]:
+    """
+    Add sentence overlap between consecutive chunks for better narrative continuity.
+
+    Args:
+        chunks: List of text chunks
+        overlap_sentences: Number of sentences from end of chunk N to prepend to chunk N+1
+
+    Returns:
+        List of chunks with overlapping sentences for smoother transitions
+    """
+    if len(chunks) <= 1 or overlap_sentences <= 0:
+        return chunks
+
+    import re
+    sentence_pattern = re.compile(r'[^.!?…]+[.!?…]+')
+
+    overlapped_chunks = [chunks[0]]  # First chunk stays as-is
+
+    for i in range(1, len(chunks)):
+        prev_chunk = chunks[i - 1]
+        current_chunk = chunks[i]
+
+        # Extract last N sentences from previous chunk
+        prev_sentences = sentence_pattern.findall(prev_chunk)
+        if prev_sentences:
+            overlap_text = " ".join(prev_sentences[-overlap_sentences:]).strip()
+            # Prepend overlap to current chunk
+            overlapped_chunk = f"{overlap_text} {current_chunk}".strip()
+            overlapped_chunks.append(overlapped_chunk)
+        else:
+            # If no sentences found, use as-is
+            overlapped_chunks.append(current_chunk)
+
+    return overlapped_chunks
 
 
 def _split_sentences_fallback(text: str) -> List[str]:
