@@ -68,7 +68,6 @@ def create_app(registry: VoiceRegistry, service: TTSService) -> gr.Blocks:
         body_text_color="*neutral_50",
         body_text_color_subdued="*neutral_200",
         block_label_text_color="*neutral_100",
-        input_text_color="*neutral_50",
     )) as demo:
         gr.Markdown(
             "## Antique Mystery Narrator\n"
