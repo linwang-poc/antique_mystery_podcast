@@ -11,7 +11,7 @@
     "top_p": 0.9
   },
   "chunking": {
-    "max_words": 100,
+    "max_words": 50,
     "max_chars": 1200
   }
 }

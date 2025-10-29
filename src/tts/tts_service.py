@@ -65,7 +65,7 @@ class TTSService:
                 max_chars=max_chars,
                 max_words=max_words,
                 tokenizer=tokenizer,
-                max_tokens=350,  # Safety margin for 400-token XTTS limit
+                max_tokens=250,  # Conservative safety margin for 400-token XTTS limit
             )
         )
 
@@ -75,7 +75,12 @@ class TTSService:
 
         if tokenizer is not None:
             # Log token counts for XTTS
-            token_counts = [len(tokenizer.encode(chunk)) for chunk in chunks]
+            token_counts = []
+            for chunk in chunks:
+                try:
+                    token_counts.append(len(tokenizer.encode(chunk)))
+                except Exception:  # noqa: BLE001
+                    token_counts.append(int(len(chunk.split()) * 1.8))
             max_chunk_tokens = max(token_counts, default=0)
             logger.info(
                 "Starting synthesis using profile '%s' (engine=%s) in %d chunk(s). "
@@ -287,6 +292,34 @@ class TTSService:
         params = profile.params
         wav_path = tmpdir / f"chunk_{chunk_index:02d}.wav"
 
+        # Pre-synthesis token verification for XTTS (400 token hard limit)
+        if self._xtts_tokenizer is not None:
+            try:
+                token_count = len(self._xtts_tokenizer.encode(text))
+                if token_count > 380:  # Safety margin before 400 limit
+                    logger.error(
+                        "Chunk %d exceeds safe token limit: %d tokens (max: 380). "
+                        "Text preview: %s",
+                        chunk_index,
+                        token_count,
+                        text[:200] + "..." if len(text) > 200 else text,
+                    )
+                    raise ValueError(
+                        f"Chunk {chunk_index} has {token_count} tokens, exceeding XTTS safe limit of 380. "
+                        "This indicates a chunking failure. Please report this error."
+                    )
+                logger.debug("Chunk %d token count verified: %d tokens", chunk_index, token_count)
+            except ValueError:
+                # Re-raise ValueError (our custom error)
+                raise
+            except Exception as e:  # noqa: BLE001
+                # Tokenizer failed, log warning but proceed (chunking should have handled limits)
+                logger.warning(
+                    "Could not verify token count for chunk %d: %s. Proceeding with synthesis.",
+                    chunk_index,
+                    str(e)[:100]
+                )
+
         # Always disable XTTS's internal sentence splitting
         # We handle all chunking externally with token-aware custom splitter
         engine.tts_to_file(
@@ -358,7 +391,7 @@ def _chunk_text(
     max_chars: Optional[int] = 1200,
     max_words: Optional[int] = None,
     tokenizer=None,
-    max_tokens: int = 350,
+    max_tokens: int = 250,
 ) -> Iterable[str]:
     """
     Split text into chunks respecting natural boundaries and token limits.
@@ -370,7 +403,7 @@ def _chunk_text(
         max_chars: Maximum characters per chunk (fallback if no tokenizer)
         max_words: Maximum words per chunk (fallback if no tokenizer)
         tokenizer: Optional tokenizer for accurate token counting (XTTS)
-        max_tokens: Maximum tokens per chunk when using tokenizer (default: 350, safety margin for 400 limit)
+        max_tokens: Maximum tokens per chunk when using tokenizer (default: 250, conservative safety margin for 400 limit)
     """
     # Ensure NLTK punkt data is available for sentence tokenization
     try:
@@ -422,8 +455,12 @@ def _chunk_text(
                     # Use accurate token counting
                     try:
                         prospective_tokens = len(tokenizer.encode(prospective_text))
-                    except Exception:  # noqa: BLE001
+                    except Exception as e:  # noqa: BLE001
                         # Fallback to word counting if tokenization fails
+                        logger.warning(
+                            "Tokenizer encode failed (using 1.8x word estimate instead): %s",
+                            str(e)[:100]
+                        )
                         prospective_tokens = len(prospective_text.split()) * 1.8  # Rough estimate
 
                     # If current buffer exists and adding sentence exceeds limit, flush buffer
@@ -431,7 +468,10 @@ def _chunk_text(
                         chunk = " ".join(current_parts).strip()
                         if chunk:
                             chunks.append(chunk)
-                            actual_tokens = len(tokenizer.encode(chunk))
+                            try:
+                                actual_tokens = len(tokenizer.encode(chunk))
+                            except Exception:  # noqa: BLE001
+                                actual_tokens = int(len(chunk.split()) * 1.8)
                             logger.debug(
                                 "Chunk created: %d tokens (%d words, %d chars)",
                                 actual_tokens,
@@ -447,7 +487,10 @@ def _chunk_text(
                         current_parts = []
 
                     # Check if single sentence is too long - need to split at clause level
-                    sentence_tokens = len(tokenizer.encode(sentence))
+                    try:
+                        sentence_tokens = len(tokenizer.encode(sentence))
+                    except Exception:  # noqa: BLE001
+                        sentence_tokens = int(len(sentence.split()) * 1.8)
                     if sentence_tokens > max_tokens:
                         logger.debug(
                             "Sentence too long (%d tokens), splitting at clause boundaries",
@@ -457,9 +500,13 @@ def _chunk_text(
                         clause_chunks = _split_at_clauses(sentence, max_tokens, tokenizer)
                         for clause_chunk in clause_chunks:
                             chunks.append(clause_chunk)
+                            try:
+                                clause_tokens = len(tokenizer.encode(clause_chunk))
+                            except Exception:  # noqa: BLE001
+                                clause_tokens = int(len(clause_chunk.split()) * 1.8)
                             logger.debug(
                                 "Clause chunk: %d tokens",
-                                len(tokenizer.encode(clause_chunk)),
+                                clause_tokens,
                             )
                         continue
                 else:
@@ -506,7 +553,10 @@ def _chunk_text(
                 if chunk:
                     chunks.append(chunk)
                     if tokenizer is not None:
-                        actual_tokens = len(tokenizer.encode(chunk))
+                        try:
+                            actual_tokens = len(tokenizer.encode(chunk))
+                        except Exception:  # noqa: BLE001
+                            actual_tokens = int(len(chunk.split()) * 1.8)
                         logger.debug(
                             "Chunk created: %d tokens (%d words, %d chars)",
                             actual_tokens,
@@ -540,7 +590,11 @@ def _split_at_clauses(sentence: str, max_tokens: int, tokenizer) -> List[str]:
         current_words = []
         for word in words:
             test_chunk = " ".join(current_words + [word])
-            if len(tokenizer.encode(test_chunk)) > max_tokens and current_words:
+            try:
+                test_tokens = len(tokenizer.encode(test_chunk))
+            except Exception:  # noqa: BLE001
+                test_tokens = int(len(test_chunk.split()) * 1.8)
+            if test_tokens > max_tokens and current_words:
                 chunks.append(" ".join(current_words))
                 current_words = [word]
             else:
@@ -558,7 +612,12 @@ def _split_at_clauses(sentence: str, max_tokens: int, tokenizer) -> List[str]:
         clause_with_punct = clause if not current_clauses else ", " + clause
         prospective = "".join(current_clauses) + clause_with_punct
 
-        if current_clauses and len(tokenizer.encode(prospective)) > max_tokens:
+        try:
+            prospective_tokens = len(tokenizer.encode(prospective))
+        except Exception:  # noqa: BLE001
+            prospective_tokens = int(len(prospective.split()) * 1.8)
+
+        if current_clauses and prospective_tokens > max_tokens:
             chunks.append("".join(current_clauses).strip())
             current_clauses = [clause]
         else:
