@@ -96,7 +96,7 @@ Since VibeVoice requires 12GB+ GPU VRAM and you're running on CPU-only laptop, t
    ```
 
 5. Upload your story and reference audio
-6. Run generation script (see `vibevoice_colab_example.ipynb`)
+6. Run generation script (see `notebooks/vibevoice_colab_example.ipynb`)
 
 **Pros:** Fixed monthly cost, Google infrastructure reliability
 **Cons:** Usage limits (100 units/month), slower than dedicated rentals
