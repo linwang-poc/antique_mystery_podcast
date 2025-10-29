@@ -376,11 +376,18 @@ class TTSService:
 
     def _initialize_f5tts(self):
         try:
+            import torch
             from f5_tts.api import F5TTS
+
+            # Set random seed for reproducibility (F5-TTS requirement)
+            torch.manual_seed(0)
+            if torch.cuda.is_available():
+                torch.cuda.manual_seed_all(0)
 
             engine = F5TTS(
                 model="F5TTS_Base",
                 device="cpu",
+                seed=0,  # Required: F5-TTS needs explicit seed
             )
             logger.info("F5-TTS engine loaded.")
             return engine
