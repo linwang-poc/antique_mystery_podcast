@@ -1,0 +1,31 @@
+# Python dependencies for VibeVoice Mystery Narrator Docker container
+# These are installed in addition to the base PyTorch image dependencies
+
+# Core ML/AI packages (versions compatible with PyTorch 2.x)
+torch>=2.0.0
+torchaudio>=2.0.0
+transformers>=4.30.0
+accelerate>=0.20.0
+
+# Audio processing
+soundfile>=0.12.1
+librosa>=0.10.0
+pydub>=0.25.1
+
+# Numerical computing
+numpy>=1.24.0,<2.0.0
+
+# Web UI
+gradio>=4.0.0
+
+# Configuration
+pyyaml>=6.0.0
+
+# Progress tracking
+tqdm>=4.65.0
+
+# Text processing
+regex>=2023.0.0
+
+# HTTP requests (for health checks)
+requests>=2.31.0
