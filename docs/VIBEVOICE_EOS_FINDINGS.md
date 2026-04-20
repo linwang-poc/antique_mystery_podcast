@@ -35,6 +35,27 @@ Mitigation:
 - **Higher CFG_SCALE**: Increasing `CFG_SCALE` from 1.25 toward 1.5–2.0 enforces stricter text adherence and may reduce spontaneous creative additions.
 - There is no reliable way to prevent music programmatically before generation.
 
+## 4a. Encoder Global Context Contamination (Critical Finding)
+
+VibeVoice uses a transformer encoder that processes the **entire input text globally and simultaneously** before generating any audio. This means text anywhere in the input — including at the very end — contributes equally to the encoder's global context, which conditions the entire audio output including the beginning.
+
+**Symptom**: Adding podcast-style outro text (e.g., "thank you for listening to the podcast", "see you next week", "podcast", website URLs) as buffer paragraphs at the end of the story caused ~1 minute of music/noise/irrelevant voice at the START of the generated audio, before the real story narration began.
+
+**Cause**: Phrases like "podcast", "thank you for listening", "see you next week", and "dot com" are strongly associated with podcast intro music and production in the model's training data. When these appear anywhere in the encoder input, the model shifts into "podcast production" mode globally, affecting audio from the very first sample.
+
+**Rule**: The `BUFFER_TEXT` appended after the story must be **thematically neutral and stylistically consistent** with the story content. It must not contain:
+- The word "podcast" (strongest trigger)
+- "thank you for listening" or similar sign-off phrases
+- "see you next week" or similar outro phrases
+- Website URLs or sponsor-read patterns
+
+**Why outro-as-buffer is architecturally incompatible**: Any outro phrasing distinctive enough to be useful as a sign-off is also distinctive enough to trigger global audio contamination. There is no sweet spot — neutral prose doesn't contaminate but isn't useful as an outro; useful outro text contaminates.
+
+**Correct architecture** (already in place):
+- `BUFFER_TEXT` = neutral thematic prose for EOS protection only
+- Podcast sign-off / outro = pre-recorded `ending.mp3` appended in Step 6.5
+- If narrated outro is desired, generate it as a **separate VibeVoice call** (outro text only, no story) and stitch it in post-processing
+
 ## 5. Chunking Approach (Tested and Failed)
 
 We tested splitting long texts into smaller chunks, generating audio for each chunk separately, then stitching the segments together. This approach **failed** due to multiple issues:
